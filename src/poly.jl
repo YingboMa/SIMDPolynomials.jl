@@ -49,20 +49,28 @@ Base.convert(::Type{<:SparsePoly}, m::Uninomial) = SparsePoly(Uniterm(m))
 Base.convert(::Type{<:SparsePoly}, t::Uniterm) = SparsePoly(t)
 #Base.convert(::Type{<:SparsePoly}, t::Rat) = SparsePoly(convert(Uniterm, t))
 SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], [degree(t)], var(t))
+Base.similar(p::SparsePoly) = SparsePoly(similar(coeffs(p)), similar(p.exps), var(p))
 
 var(p::SparsePoly) = p.v
 coeffs(p::SparsePoly) = p.coeffs
 coeff(p::SparsePoly, i) = coeffs(p)[i]
 term(p::SparsePoly, i) = Uniterm(p.coeffs[i], Uninomial(var(p), p.exps[i]))
 terms(p::SparsePoly) = (term(p, i) for i in eachindex(coeffs(p)))
-lt(p::SparsePoly) = term(p, lastindex(p.coeffs))
-degree(p::SparsePoly) = iszero(p) ? -1 : p.exps[end]
+lt(p::SparsePoly) = term(p, 1)
+lc(p::SparsePoly) = coeff(p, 1)
+degree(p::SparsePoly) = iszero(p) ? -1 : p.exps[1]
 Base.iszero(p::SparsePoly) = isempty(p.exps)
 
 Base.zero(t::SparsePoly) = zero(lt(t))
 Base.one(t::SparsePoly) = one(lt(t))
-Base.deleteat!(p::SparsePoly, i::Int) = (deleteat!(p.coeff, i); deleteat!(p.exps, i);nothing)
+Base.deleteat!(p::SparsePoly, i::Int) = (deleteat!(p.coeffs, i); deleteat!(p.exps, i); nothing)
 Base.copy(p::SparsePoly) = SparsePoly(deepcopy(coeffs(p)), copy(p.exps), var(p))
+
+function check_poly(x, y)
+    v = var(x)
+    v == var(y) || error("$x and $y contain different variables!")
+    nothing
+end
 
 #########################
 # Arithmetic/Algorithms #
@@ -71,16 +79,14 @@ Base.copy(p::SparsePoly) = SparsePoly(deepcopy(coeffs(p)), copy(p.exps), var(p))
 Base.:(^)(x::Uninomial, n::Integer) = Uninomial(var(x), degree(x)+n-1)
 
 function Base.:(+)(x::Uninomial, y::Uninomial)
-    v = var(x)
-    v == var(y) || error("$x + $y contains different variables!")
+    check_poly(x, y)
     if x < y
         x, y = y, x
     end
-    SparsePoly([1, 1], [degree(x), degree(y)], v)
+    SparsePoly([1, 1], [degree(x), degree(y)], var(x))
 end
 function Base.:(+)(x::Uniterm, y::Uniterm)
-    v = var(x)
-    v == var(y) || error("$x + $y contains different variables!")
+    check_poly(x, y)
     if ismatch(x, y)
         c = x.coeff + y.coeff
         return iszero(c) ? SparsePoly(zero(x)) : SparsePoly(Uniterm(c, monomial(x)))
@@ -88,22 +94,20 @@ function Base.:(+)(x::Uniterm, y::Uniterm)
         if x < y
             x, y = y, x
         end
-        return SparsePoly([coeff(x), coeff(y)], [degree(x), degree(y)], v)
+        return SparsePoly([coeff(x), coeff(y)], [degree(x), degree(y)], var(x))
     end
 end
-Base.:(*)(x::Number, y::Uninomial) = Uniterm(x, y)
-Base.:(*)(x::Uninomial, y::Number) = y * x
+Base.:(*)(x::Rat, y::Uninomial) = Uniterm(x, y)
+Base.:(*)(x::Uninomial, y::Rat) = y * x
 
 function Base.:(*)(x::Uninomial, y::Uninomial)
-    v = var(x)
-    v == var(y) || error("$x * $y contains different variables!")
-    Uninomial(v, degree(x) + degree(y))
+    check_poly(x, y)
+    Uninomial(var(x), degree(x) + degree(y))
 end
 Base.:(*)(x::Uniterm, y::Uniterm) = Uniterm(coeff(x) * coeff(y), monomial(x) * monomial(y))
 
 function Base.:*(p::SparsePoly, x::Uniterm)
-    v = var(x)
-    v == var(p) || error("$p * $x contains different variables!")
+    check_poly(p, x)
     if iszero(x)
         return SparsePoly(x)
     elseif isone(x)
@@ -116,13 +120,17 @@ function Base.:*(p::SparsePoly, x::Uniterm)
             cfs[i] = coeff(nt)
             exps[i] = degree(nt)
         end
-        return SparsePoly(cfs, exps, v)
+        return SparsePoly(cfs, exps, var(x))
     end
 end
 Base.:*(x::SparsePoly, y::SparsePoly) = sum(t->x * t, terms(y))
+Base.:*(x::Rat, y::SparsePoly) = SparsePoly(x * coeffs(y), y.exps, var(y))
+Base.:*(x::SparsePoly, y::Rat) = y * x
 
 addcoef(x::Uniterm, c) = (c += coeff(x); return iszero(c), Uniterm(c, monomial(x)))
 addcoef(x::Uniterm, c::Uniterm) = addcoef(x, coeff(c))
+Base.:(-)(x::Uniterm) = Uniterm(-coeff(x), monomial(x))
+subterm!(p::SparsePoly, x) = addterm!(p, -x)
 function addterm!(p::SparsePoly, x)
     iszero(x) && return p
     for (i, t) in enumerate(terms(p))
@@ -147,26 +155,42 @@ end
 
 Base.div(x::Uninomial, y::Uninomial) = (x/y)[1]
 function Base.:(/)(x::Uninomial, y::Uninomial)
-    v = var(x)
-    @assert v == var(y)
+    check_poly(x, y)
     xd, yd = degree(x), degree(y)
-    xd >= yd ? (Uninomial(xd - yd, v), false) : (x, true)
+    xd >= yd ? (Uninomial(xd - yd, var(x)), false) : (x, true)
 end
 
-#=
-function pseudorem(p::SparsePoly, d::SparsePoly)
-    p = copy(p)
-    while !isempty(terms(p))
-        nx, fail = lt(p) / lt(d)
-        if fail
-            return p
-        else
-            p -= d * nx
-        end
+function pow!(p::SparsePoly, n::Integer)
+    iszero(n) && return p
+    @assert n >= 0
+    for i in eachindex(p.exps)
+        p.exps[i] += n
     end
     return p
 end
-=#
+
+function mulpow!(dest, p::SparsePoly, a::Rat, n::Integer)
+    @assert n >= 0
+    for i in eachindex(p.exps)
+        dest.coeffs[i] = p.coeffs[i] * a
+        dest.exps[i] = p.exps[i] + n
+    end
+    return dest
+end
+
+function pseudorem(p::SparsePoly, d::SparsePoly)
+    check_poly(p, d)
+    degree(p) < degree(d) && return p
+    k = degree(p) - degree(d) + 1
+    l = lc(d)
+    dd = similar(d)
+    while !iszero(p) && degree(p) >= degree(d)
+        s = mulpow!(dd, d, lc(p), degree(p) - degree(d))
+        p = p * l - s # TODO: opt
+        k -= 1
+    end
+    return l^k * p
+end
 
 ##############
 # Conversion #
