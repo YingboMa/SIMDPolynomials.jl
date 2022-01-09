@@ -20,7 +20,6 @@ end
 Base.convert(::Type{<:Uniterm}, t::Uninomial) = Uniterm(t)
 #Base.convert(::Type{<:Uniterm}, t::Rat) = Uniterm(t, Uninomial())
 Uniterm(t::Uninomial) = Uniterm(coeff(t), t)
-Base.:(==)(x::Uniterm, y::Uniterm) = x === y || (coeff(x) == coeff(y) && monomial(x) == monomial(y))
 
 coeff(t::Uniterm) = t.coeff
 monomial(t::Uniterm) = t.uninomial
@@ -209,7 +208,7 @@ function SparsePoly(p::MPoly, v::IDType)
         count(isequal(v), monomial(t).ids)
     end
     perm = sortperm(pows, rev=true)
-    coeffs = Term[]
+    coeffs = MPoly[]
     exps = UInt[]
 
     sorted_pows = pows[perm]

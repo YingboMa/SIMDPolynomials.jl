@@ -9,6 +9,7 @@ struct Monomial <: AbstractMonomial
     ids::Vector{IDType}
 end
 Monomial() = Monomial(EMPTY_IDS)
+Base.promote_rule(::Type{Monomial}, ::Type{<:Rat}) = Term
 
 const VARNAME_DICT = Dict{IDType, String}(0 => "x", 1 => "y", 2 => "z")
 const PRETTY_PRINT = Ref(true)
@@ -57,6 +58,7 @@ end
 
 Base.:-(y::Monomial) = Term(-1, y)
 Base.:+(y::Monomial, x::Monomial) = Term(y) + Term(x)
+Base.:^(y::Monomial, n::Integer) = iszero(n) ? Monomial() : Base.power_by_squaring(y, n)
 function Base.:*(y::Monomial, x::Monomial)
     ids = y.ids
     i = j = 1
@@ -130,7 +132,12 @@ end
 monomial(x::Term) = x.monomial
 Term(x) = Term(x, Monomial())
 Term(m::Monomial) = Term(1, m)
-Base.Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:AbstractMonomial}) = t
+coeff(x::Term) = x.coeff
+
+Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:AbstractMonomial}) = t
+Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:Rat}) = t
+Base.:(==)(x::AbstractTerm, y::AbstractTerm) = x === y || (coeff(x) == coeff(y) && monomial(x) == monomial(y))
+
 print_coeff(io::IO, coeff) = isinteger(coeff) ? print(io, Integer(coeff)) : print(io, coeff)
 function Base.show(io::IO, x::AbstractTerm)
     printed = false
@@ -197,9 +204,9 @@ end
 MPoly() = MPoly(EMPTY_TERMS)
 MPoly(x::Term) = MPoly([x])
 MPoly(x::Union{Rat,Monomial}) = MPoly(Term(x))
-Base.Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:AbstractMonomial}) = p
-Base.Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:AbstractTerm}) = p
-Base.Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:Rat}) = p
+Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:AbstractMonomial}) = p
+Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:AbstractTerm}) = p
+Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:Rat}) = p
 terms(x::MPoly) = x.terms
 Base.empty!(x::MPoly) = (empty!(terms(x)); x)
 function Base.show(io::IO, p::AbstractPoly)
@@ -367,7 +374,7 @@ function univariate_gcd(a::AbstractPoly, b::AbstractPoly)
     x = copy(a)
     y = copy(b)
     while !iszero(y)
-        x = rem(x, y)
+        x = pseudorem(x, y)
         x, y = y, x
     end
     return x#, a / x, b / x

@@ -2,7 +2,7 @@ module LoopPoly
 
 export Uninomial, Uniterm, Poly
 export Monomial, Term, MPoly
-export terms, term, coeffs, coeff, lt
+export terms, term, coeffs, coeff, lt, var
 export mpoly2poly
 export univariate_gcd, pseudorem
 
