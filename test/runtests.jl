@@ -13,7 +13,7 @@ using Test
     @test pseudorem(p, q) == -46*x^4 + 7*x^2 - 19*x
 end
 
-@testset "MPoly2Poly" begin
+@testset "GCD" begin
     x, y, z = [Monomial([i]) for i in 0:2]
     c1 = 10*(x * z + x)
     c2 = 2*(x^2 + z)
@@ -41,4 +41,14 @@ end
     @test gcd((z+1)*k, x*k) == k
     @test gcd(x*k, p*k) == k
     @test gcd(p*k, x*k) == k
+
+    p = 2*x*y
+    q = 2*x*y + x
+    @test gcd(p, q) == x
+    @test gcd(q, p) == x
+
+    p = x*y + y
+    q = -x*y - y
+    @test gcd(p, q) == p
+    @test gcd(q, p) == p
 end

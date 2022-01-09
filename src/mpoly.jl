@@ -383,6 +383,8 @@ end
 
 Base.:(/)(x::MPoly, y::MPoly) = divexact(x, y)
 
+Base.gcd(x::Term, y::MPoly) = gcd(MPoly(x), y)
+Base.gcd(x::MPoly, y::Term) = gcd(y, x)
 function Base.gcd(x::MPoly, y::MPoly)
     # trival case
     if iszero(x) || isone(y)
