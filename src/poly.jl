@@ -221,7 +221,6 @@ end
 function content(a::SparsePoly)
     cfs = coeffs(a)
     length(cfs) == 1 && return first(cfs)
-    Main._a[] = cfs[1], cfs[2]
     g = gcd(cfs[1], cfs[2])
     # TODO: short circuit and split to small terms
     for i in 3:length(cfs)
@@ -339,4 +338,14 @@ function SparsePoly(p::MPoly, v::IDType)
         push!(exps, olddegree)
     end
     return SparsePoly(coeffs, exps, v)
+end
+
+function univariate_to_multivariate(g::SparsePoly{<:AbstractPoly})
+    cfs = coeffs(g)
+    eps = g.exps
+    v = var(g)
+    # TODO
+    sum(zip(cfs, eps)) do (c, e)
+        c * Monomial(fill(v, e))
+    end
 end

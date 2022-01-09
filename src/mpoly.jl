@@ -434,13 +434,3 @@ function to_univariate(x::MPoly)
     v = pick_var(x)
     v, (v == NOT_A_VAR ? nothing : SparsePoly(x, v))
 end
-
-function univariate_to_multivariate(g::SparsePoly{<:AbstractPoly})
-    cfs = coeffs(g)
-    eps = g.exps
-    v = var(g)
-    # TODO
-    sum(zip(cfs, eps)) do (c, e)
-        c * Monomial(fill(v, e))
-    end
-end
