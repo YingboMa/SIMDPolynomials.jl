@@ -3,7 +3,9 @@ const Rat = Union{Rational{<:Integer},Integer}
 const IDType = UInt32
 const EMPTY_IDS = IDType[]
 
-struct Monomial <: Number
+abstract type AbstractMonomial <: Number end
+
+struct Monomial <: AbstractMonomial
     ids::Vector{IDType}
 end
 Monomial() = Monomial(EMPTY_IDS)
@@ -16,6 +18,7 @@ function int2superscript(x)
     mapreduce(d->SUPERSCRIPTS[d + 1], *, Iterators.reverse(digits(x)))
 end
 function print_single_monomial(io, v, o, star=false)
+    iszero(o) && return print(io, 1)
     star && (PRETTY_PRINT[] || print(io, '*'))
     print(io, VARNAME_DICT[v])
     if o > 1
@@ -102,7 +105,7 @@ end
 
 Base.:(==)(x::Monomial, y::Monomial) = (x === y) || (x.ids == y.ids)
 
-Base.isone(x::Monomial) = isempty(x.ids)
+Base.isone(x::Monomial) = iszero(degree(x))
 degree(x::Monomial) = length(x.ids)
 # graded lex
 function Base.isless(x::Monomial, y::Monomial)
@@ -127,9 +130,9 @@ end
 monomial(x::Term) = x.monomial
 Term(x) = Term(x, Monomial())
 Term(m::Monomial) = Term(1, m)
-Base.Base.promote_rule(::Type{Term}, ::Type{Monomial}) = Term
+Base.Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:AbstractMonomial}) = t
 print_coeff(io::IO, coeff) = isinteger(coeff) ? print(io, Integer(coeff)) : print(io, coeff)
-function Base.show(io::IO, x::Term)
+function Base.show(io::IO, x::AbstractTerm)
     printed = false
     if x.coeff != 1
         if x.coeff == -1
@@ -146,7 +149,7 @@ function Base.show(io::IO, x::Term)
     end
 end
 
-ismatch(x::Term, y::Term) = monomial(x) == monomial(y)
+ismatch(x::AbstractTerm, y::AbstractTerm) = monomial(x) == monomial(y)
 Base.isless(x::Term, y::Term) = isless(monomial(x), monomial(y))
 Base.iszero(x::Term) = iszero(x.coeff)
 Base.isone(x::Term) = isone(x.coeff) && isone(monomial(x))
@@ -160,9 +163,9 @@ Base.:*(x::Term, y::Term) = Term(x.coeff * y.coeff, monomial(x) * monomial(y))
 function Base.:+(x::Term, y::Term)
     if ismatch(x, y)
         c = x.coeff + y.coeff
-        return iszero(c) ? Poly(Term(0)) : Poly(Term(c, monomial(x)))
+        return iszero(c) ? MPoly(Term(0)) : MPoly(Term(c, monomial(x)))
     else
-        return x < y ? Poly(Term[y, x]) : Poly(Term[x, y])
+        return x < y ? MPoly(Term[y, x]) : MPoly(Term[x, y])
     end
 end
 
@@ -170,10 +173,10 @@ Base.:-(x::Term) = Term(-x.coeff, monomial(x))
 function Base.:-(x::Term, y::Term)
     if ismatch(x, y)
         c = x.coeff - y.coeff
-        return iszero(c) ? Poly(Term(0)) : Poly(Term(c, x.coeff))
+        return iszero(c) ? MPoly(Term(0)) : MPoly(Term(c, x.coeff))
     else
         y = -y
-        return x < y ? Poly(Term[y, x]) : Poly(Term[x, y])
+        return x < y ? MPoly(Term[y, x]) : MPoly(Term[x, y])
     end
 end
 
@@ -185,43 +188,30 @@ function Base.:(/)(y::AbstractTerm, x::AbstractTerm)
         Term(y.coeff/x.coeff, m), fail
     end
 end
-function Base.:(/)(y::Uniterm, x::Uniterm)
-    m, fail = monomial(y) / monomial(x)
-    if fail
-        Uniterm(y.coeff, m), fail
-    else
-        d, r = divrem(y.coeff, x.coeff)
-        if iszero(r)
-            Uniterm(d, m), fail
-        else
-            Uniterm(d, m), true
-        end
-    end
-end
 
 const EMPTY_TERMS = Term[]
 abstract type AbstractPoly <: Number end
-struct Poly <: AbstractPoly
+struct MPoly <: AbstractPoly
     terms::Vector{Term}
 end
-Poly() = Poly(EMPTY_TERMS)
-Poly(x::Term) = Poly([x])
-Poly(x::Union{Rat,Monomial}) = Poly(Term(x))
-Base.Base.promote_rule(::Type{Poly}, ::Type{Monomial}) = Poly
-Base.Base.promote_rule(::Type{Poly}, ::Type{Term}) = Poly
-Base.Base.promote_rule(::Type{Poly}, ::Type{<:Rat}) = Poly
-terms(x::Poly) = x.terms
-Base.empty!(x::Poly) = (empty!(terms(x)); x)
-function Base.show(io::IO, p::Poly)
+MPoly() = MPoly(EMPTY_TERMS)
+MPoly(x::Term) = MPoly([x])
+MPoly(x::Union{Rat,Monomial}) = MPoly(Term(x))
+Base.Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:AbstractMonomial}) = p
+Base.Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:AbstractTerm}) = p
+Base.Base.promote_rule(p::Type{<:AbstractPoly}, ::Type{<:Rat}) = p
+terms(x::MPoly) = x.terms
+Base.empty!(x::MPoly) = (empty!(terms(x)); x)
+function Base.show(io::IO, p::AbstractPoly)
     ts = terms(p)
     if isempty(ts)
         print(io, 0)
         return
     end
     n = length(ts)
-    show(io, ts[1])
-    for i in 2:n
-        t = ts[i]
+    t1, tr = Iterators.peel(ts)
+    show(io, t1)
+    for t in tr
         if t.coeff < 0
             print(io, " - ")
             t = -t
@@ -232,29 +222,29 @@ function Base.show(io::IO, p::Poly)
     end
 end
 
-Base.copy(x::Poly) = Poly(copy(terms(x)))
-#function largercopy(x::Poly, i::Int)
+Base.copy(x::MPoly) = MPoly(copy(terms(x)))
+#function largercopy(x::MPoly, i::Int)
 #    n = length(terms(x))
 #    terms = similar(terms(x), i + n)
 #    copyto!(terms, 1, terms(x), 1, n)
-#    Poly(terms)
+#    MPoly(terms)
 #end
-Base.:(==)(x::Poly, y::Poly) = x === y || (terms(x) == terms(y))
-Base.iszero(x::Poly) = isempty(terms(x))
+Base.:(==)(x::MPoly, y::MPoly) = x === y || (terms(x) == terms(y))
+Base.iszero(x::MPoly) = isempty(terms(x))
 
-Base.:*(x::Term, p::Poly) = p * x
-function Base.:*(p::Poly, x::Term)
-    iszero(x) ? Poly() :
-        isone(x) ? p : Poly(Term[t * x for t in terms(p)])
+Base.:*(x::Term, p::MPoly) = p * x
+function Base.:*(p::MPoly, x::Term)
+    iszero(x) ? MPoly() :
+        isone(x) ? p : MPoly(Term[t * x for t in terms(p)])
 end
-function Base.:*(p::Poly, x::Poly)
+function Base.:*(p::MPoly, x::MPoly)
     sum(t->p * t, terms(x))
 end
-Base.:+(p::Poly, x::Term) = addterm!(copy(p), x)
-Base.:-(p::Poly, x::Term) = subterm!(copy(p), x)
+Base.:+(p::MPoly, x::Term) = addterm!(copy(p), x)
+Base.:-(p::MPoly, x::Term) = subterm!(copy(p), x)
 
-subterm!(p::Poly, x) = addterm!(p, -x)
-function addterm!(p::Poly, x)
+subterm!(p::MPoly, x) = addterm!(p, -x)
+function addterm!(p::MPoly, x)
     iszero(x) && return p
     ts = terms(p)
     for (i, t) in enumerate(ts)
@@ -275,14 +265,14 @@ function addterm!(p::Poly, x)
     return p
 end
 
-function Base.:+(p::Poly, x::Poly)
+function Base.:+(p::AbstractPoly, x::AbstractPoly)
     s = copy(p)
     for t in terms(x)
         addterm!(s, t)
     end
     return s
 end
-function Base.:-(p::Poly, x::Poly)
+function Base.:-(p::AbstractPoly, x::AbstractPoly)
     s = copy(p)
     for t in terms(x)
         subterm!(s, t)
@@ -291,21 +281,21 @@ function Base.:-(p::Poly, x::Poly)
 end
 
 lt(p::AbstractPoly) = first(terms(p))
-function rmlt!(p::Poly)
+function rmlt!(p::MPoly)
     ts = terms(p)
     popfirst!(ts)
     return p
 end
-function takelt!(p::Poly, x::Poly)
+function takelt!(p::MPoly, x::MPoly)
     addterm!(p, lt(x))
     rmlt!(x)
     return p
 end
 
-function Base.divrem(p::Poly, d::Poly)
+function Base.divrem(p::MPoly, d::MPoly)
     p = copy(p)
-    q = Poly(similar(terms(p), 0))
-    r = Poly(similar(terms(p), 0))
+    q = MPoly(similar(terms(p), 0))
+    r = MPoly(similar(terms(p), 0))
     while !isempty(terms(p))
         nx, fail = lt(p) / lt(d)
         if fail
@@ -320,7 +310,7 @@ end
 
 function Base.rem(p::AbstractPoly, d::AbstractPoly)
     p = copy(p)
-    r = Poly(similar(terms(p), 0))
+    r = MPoly(similar(terms(p), 0))
     while !isempty(terms(p))
         nx, fail = lt(p) / lt(d)
         if fail
@@ -367,7 +357,7 @@ function Base.gcd(x::Term, y::Term)
     return Term(gr, g), Term(x.coeff / gr, a), Term(y.coeff / gr, b)
 end
 
-function Base.:(/)(x::Poly, y::Poly)
+function Base.:(/)(x::MPoly, y::MPoly)
     d, r = divrem(x, y)
     @assert iszero(r)
     d
@@ -381,97 +371,4 @@ function univariate_gcd(a::AbstractPoly, b::AbstractPoly)
         x, y = y, x
     end
     return x#, a / x, b / x
-end
-
-# mpoly2poly(5x⁴ + 2x³ + x² + xy + y^2, 0x00001 [y])
-# ->
-#              ---------------- constants
-#              |
-# y^2 + xy + (5x⁴ + 2x³ + x²)
-#
-# M2P(a, v)
-struct Uninomial
-    d::Int
-    v::IDType
-end
-struct Uniterm <: AbstractTerm
-    coeff::Poly
-    uninomial::Uninomial
-end
-struct UniPoly <: AbstractPoly
-    #dc::Vector{Tuple{UInt32, Vector{Term}}}
-    terms::Vector{Uniterm}
-end
-terms(p::UniPoly) = p.terms
-Base.iszero(p::UniPoly) = isempty(terms(p))
-monomial(p::Uniterm) = p.uninomial
-
-function UniPoly(p::Poly, v::IDType)
-    ts = terms(p)
-    pows = map(ts) do t
-        count(isequal(v), monomial(t).ids)
-    end
-    perm = sortperm(pows, rev=true)
-    sorted_pows = pows[perm]
-    olddegree = sorted_pows[1]
-    chunk_start_idx = idx = 1
-    sth = Uniterm[]
-    while idx <= length(sorted_pows)
-        degree = sorted_pows[idx]
-        if olddegree != degree # new chunk
-            coeff = ts[perm[chunk_start_idx:idx-1]]
-            if olddegree > 0
-                coeff = map(coeff) do t
-                    Term(t.coeff, Monomial(filter(!isequal(v), monomial(t).ids)))
-                end
-            end
-            push!(sth, Uniterm(sum(coeff), Uninomial(olddegree, v)))
-            chunk_start_idx = idx
-            olddegree = degree
-        end
-        idx += 1
-    end
-    coeff = ts[perm[chunk_start_idx:idx-1]]
-    if olddegree > 0
-        coeff = map(coeff) do t
-            Term(t.coeff, Monomial(filter(!isequal(v), monomial(t).ids)))
-        end
-    end
-    push!(sth, Uniterm(sum(coeff), Uninomial(olddegree, v)))
-    return UniPoly(sth)
-end
-
-function Base.divrem(p::UniPoly, d::UniPoly)
-    p = copy(p)
-    q = UniPoly(similar(terms(p), 0))
-    while !isempty(terms(p))
-        nx, fail = lt(p) / lt(d)
-        if fail
-            return q, p
-        else
-            p -= d * nx
-            q += nx
-        end
-    end
-    return q, p
-end
-
-function Base.rem(p::UniPoly, d::UniPoly)
-    p = copy(p)
-    while !isempty(terms(p))
-        nx, fail = lt(p) / lt(d)
-        if fail
-            return p
-        else
-            p -= d * nx
-        end
-    end
-    return p
-end
-
-function Base.:(/)(x::Uninomial, y::Uninomial)
-    # d::Int
-    # v::IDType
-    @assert x.v == y.v
-    x.d >= y.d ? (Uninomial(x.v, x.d - y.d), false) : (x, true)
 end

@@ -1,6 +1,12 @@
 module LoopPoly
 
-export Monomial, lt, univariate_gcd, mpoly2poly, terms, UniPoly, Term
+export Uninomial, Uniterm, Poly
+export Monomial, Term, MPoly
+export terms, term, coeffs, coeff, lt
+export mpoly2poly
+export univariate_gcd, pseudorem
+
 include("mpoly.jl")
+include("poly.jl")
 
 end
