@@ -4,7 +4,6 @@ struct Uninomial <: AbstractMonomial
     v::IDType
     d::UInt
 end
-#Uninomial() = Uninomial(nothing, 0)
 Base.isless(x::Uninomial, y::Uninomial) = isless(degree(x), degree(y))
 degree(m::Uninomial) = m.d
 var(m::Uninomial) = m.v
@@ -21,6 +20,7 @@ end
 Base.convert(::Type{<:Uniterm}, t::Uninomial) = Uniterm(t)
 #Base.convert(::Type{<:Uniterm}, t::Rat) = Uniterm(t, Uninomial())
 Uniterm(t::Uninomial) = Uniterm(coeff(t), t)
+Base.:(==)(x::Uniterm, y::Uniterm) = x === y || (coeff(x) == coeff(y) && monomial(x) == monomial(y))
 
 coeff(t::Uniterm) = t.coeff
 monomial(t::Uniterm) = t.uninomial
@@ -49,6 +49,8 @@ Base.convert(::Type{<:SparsePoly}, m::Uninomial) = SparsePoly(Uniterm(m))
 Base.convert(::Type{<:SparsePoly}, t::Uniterm) = SparsePoly(t)
 #Base.convert(::Type{<:SparsePoly}, t::Rat) = SparsePoly(convert(Uniterm, t))
 SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], [degree(t)], var(t))
+const EMPTY_EXPS = UInt[]
+SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, var(t))
 Base.similar(p::SparsePoly) = SparsePoly(similar(coeffs(p)), similar(p.exps), var(p))
 
 var(p::SparsePoly) = p.v
@@ -59,12 +61,14 @@ terms(p::SparsePoly) = (term(p, i) for i in eachindex(coeffs(p)))
 lt(p::SparsePoly) = term(p, 1)
 lc(p::SparsePoly) = coeff(p, 1)
 degree(p::SparsePoly) = iszero(p) ? -1 : p.exps[1]
-Base.iszero(p::SparsePoly) = isempty(p.exps)
+Base.iszero(p::SparsePoly) = isempty(p.exps) || iszero(lt(p))
 
 Base.zero(t::SparsePoly) = zero(lt(t))
 Base.one(t::SparsePoly) = one(lt(t))
+
 Base.deleteat!(p::SparsePoly, i::Int) = (deleteat!(p.coeffs, i); deleteat!(p.exps, i); nothing)
 Base.copy(p::SparsePoly) = SparsePoly(deepcopy(coeffs(p)), copy(p.exps), var(p))
+Base.:(==)(p::SparsePoly, q::SparsePoly) = all(x->x[1] == x[2], zip(terms(p), terms(q)))
 
 function check_poly(x, y)
     v = var(x)
@@ -89,7 +93,7 @@ function Base.:(+)(x::Uniterm, y::Uniterm)
     check_poly(x, y)
     if ismatch(x, y)
         c = x.coeff + y.coeff
-        return iszero(c) ? SparsePoly(zero(x)) : SparsePoly(Uniterm(c, monomial(x)))
+        return iszero(c) ? SparsePoly(x, var(x)) : SparsePoly(Uniterm(c, monomial(x)))
     else
         if x < y
             x, y = y, x
@@ -123,6 +127,9 @@ function Base.:*(p::SparsePoly, x::Uniterm)
         return SparsePoly(cfs, exps, var(x))
     end
 end
+Base.:*(x::Rat, y::Uniterm) = Uniterm(x * coeff(y), monomial(y))
+Base.:*(x::Uniterm, y::Rat) = y * x
+
 Base.:*(x::SparsePoly, y::SparsePoly) = sum(t->x * t, terms(y))
 Base.:*(x::Rat, y::SparsePoly) = SparsePoly(x * coeffs(y), y.exps, var(y))
 Base.:*(x::SparsePoly, y::Rat) = y * x
@@ -160,15 +167,7 @@ function Base.:(/)(x::Uninomial, y::Uninomial)
     xd >= yd ? (Uninomial(xd - yd, var(x)), false) : (x, true)
 end
 
-function pow!(p::SparsePoly, n::Integer)
-    iszero(n) && return p
-    @assert n >= 0
-    for i in eachindex(p.exps)
-        p.exps[i] += n
-    end
-    return p
-end
-
+# dest = (p * a)^n
 function mulpow!(dest, p::SparsePoly, a::Rat, n::Integer)
     @assert n >= 0
     for i in eachindex(p.exps)
