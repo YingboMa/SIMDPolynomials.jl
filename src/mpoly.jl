@@ -1,6 +1,7 @@
 const Rat = Union{Rational{<:Integer},Integer}
 
 const IDType = UInt32
+const NOT_A_VAR = typemax(IDType)
 const EMPTY_IDS = IDType[]
 
 abstract type AbstractMonomial <: Number end
@@ -133,6 +134,7 @@ monomial(x::Term) = x.monomial
 Term(x) = Term(x, Monomial())
 Term(m::Monomial) = Term(1, m)
 coeff(x::Term) = x.coeff
+degree(x::Term) = degree(monomial(x))
 
 Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:AbstractMonomial}) = t
 Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:Rat}) = t
@@ -238,11 +240,18 @@ Base.copy(x::MPoly) = MPoly(copy(terms(x)))
 #end
 Base.:(==)(x::MPoly, y::MPoly) = x === y || (terms(x) == terms(y))
 Base.iszero(x::MPoly) = isempty(terms(x))
+Base.isone(x::MPoly) = (ts = terms(x); length(ts) == 1 && isone(only(ts)))
 
 Base.:*(x::Term, p::MPoly) = p * x
 function Base.:*(p::MPoly, x::Term)
-    iszero(x) ? MPoly() :
-        isone(x) ? p : MPoly(Term[t * x for t in terms(p)])
+    if iszero(x)
+        return MPoly()
+    elseif isone(x)
+        return p
+    else
+        ts = Term[t * x for t in terms(p) if !iszero(t)]
+        MPoly(ts)
+    end
 end
 function Base.:*(p::MPoly, x::MPoly)
     sum(t->p * t, terms(x))
@@ -250,6 +259,7 @@ end
 Base.:+(p::MPoly, x::Term) = addterm!(copy(p), x)
 Base.:-(p::MPoly, x::Term) = subterm!(copy(p), x)
 
+Base.:-(p::MPoly) = -1 * p
 subterm!(p::MPoly, x) = addterm!(p, -x)
 function addterm!(p::MPoly, x)
     iszero(x) && return p
@@ -355,27 +365,80 @@ function Base.gcd(x::Monomial, y::Monomial)
             j += 1
         end
     end
-    return g, a, b
+    return g#, a, b
 end
 
 function Base.gcd(x::Term, y::Term)
-    g, a, b = gcd(x, y)
+    #g, a, b = gcd(monomial(x), monomial(y))
+    g = gcd(monomial(x), monomial(y))
     gr = gcd(x.coeff, y.coeff)
-    return Term(gr, g), Term(x.coeff / gr, a), Term(y.coeff / gr, b)
+    return Term(gr, g)#, Term(x.coeff / gr, a), Term(y.coeff / gr, b)
 end
 
-function Base.:(/)(x::MPoly, y::MPoly)
+function divexact(x::MPoly, y::MPoly)
     d, r = divrem(x, y)
     @assert iszero(r)
     d
 end
 
-function univariate_gcd(a::AbstractPoly, b::AbstractPoly)
-    x = copy(a)
-    y = copy(b)
-    while !iszero(y)
-        x = pseudorem(x, y)
-        x, y = y, x
+Base.:(/)(x::MPoly, y::MPoly) = divexact(x, y)
+
+function Base.gcd(x::MPoly, y::MPoly)
+    # trival case
+    if iszero(x) || isone(y)
+        return y
+    elseif iszero(y) || isone(x)
+        return x
     end
-    return x#, a / x, b / x
+    x == y && return x
+
+    v1, p1 = to_univariate(x)
+    v2, p2 = to_univariate(y)
+    if v1 < v2
+        x, y = y, x
+        v1, v2 = v2, v1
+        p1, p2 = p2, p1
+    end
+    # v2 < v1
+    # both are constants
+    (v1 == NOT_A_VAR && v2 == NOT_A_VAR) && return MPoly(gcd(lt(x), lt(y)))
+    if v2 < v1
+        # `v2` in p2 doesn't exist in `x`, so the gcd at this level is 1 and we
+        # just move on to the next level
+        return gcd(x, content(p2))
+    end
+    v1 == v2 || error("unreachable")
+
+    g = gcd(p1, p2)
+    return univariate_to_multivariate(g)
+end
+
+function pick_var(x::MPoly)
+    ts = terms(x)
+    v = NOT_A_VAR
+    for (i, t) in enumerate(ts)
+        if degree(t) > 0
+            m = monomial(t)
+            vv = m.ids[1] # get the minvar
+            if vv < v
+                v = vv
+            end
+        end
+    end
+    return v
+end
+
+function to_univariate(x::MPoly)
+    v = pick_var(x)
+    v, (v == NOT_A_VAR ? nothing : SparsePoly(x, v))
+end
+
+function univariate_to_multivariate(g::SparsePoly{<:AbstractPoly})
+    cfs = coeffs(g)
+    eps = g.exps
+    v = var(g)
+    # TODO
+    sum(zip(cfs, eps)) do (c, e)
+        c * Monomial(fill(v, e))
+    end
 end

@@ -15,17 +15,30 @@ end
 
 @testset "MPoly2Poly" begin
     x, y, z = [Monomial([i]) for i in 0:2]
-    c1 = x * z + x
-    c2 = x^2 + z
-    c3 = 2 - z
-    c4 = x * z^2 + x
+    c1 = 10*(x * z + x)
+    c2 = 2*(x^2 + z)
+    c3 = 2*(2 - z  )
+    c4 = 20*(x * z^2)
     e1 = 0
     e2 = 5
     e3 = 7
     e4 = 10
     p = c1 * y^e1 + c2 * y^e2 + c3 * y^e3 + c4 * y^e4
-    pp = LoopPoly.SparsePoly(p, y.ids[1]);
+    pp = LoopPoly.SparsePoly(p, y.ids[1])
     @test var(pp) == y.ids[1]
     @test coeffs(pp) == [c4, c3, c2, c1]
     @test pp.exps == [e4, e3, e2, e1]
+    q = prod(i->p + i, 0:3)
+    for i in 0:3
+        @test gcd(p + i, q) == p + i
+    end
+
+    k = y^2 + 1
+    @test gcd(x*k, z*k) == k
+    @test gcd(z*k, x*k) == k
+    @test gcd(x*k, (z+1)*k) == k
+    @test gcd((z+1)*k, x*k) == k
+    @test gcd((z+1)*k, x*k) == k
+    @test gcd(x*k, p*k) == k
+    @test gcd(p*k, x*k) == k
 end
