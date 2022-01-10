@@ -48,9 +48,9 @@ Base.convert(::Type{<:SparsePoly}, m::Uninomial) = SparsePoly(Uniterm(m))
 Base.convert(::Type{<:SparsePoly}, t::Uniterm) = SparsePoly(t)
 #Base.convert(::Type{<:SparsePoly}, t::Rat) = SparsePoly(convert(Uniterm, t))
 SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], [degree(t)], var(t))
-SparsePoly(c::Number, v) = SparsePoly([c], [0], v)
+SparsePoly(c::Number, v) = SparsePoly([c], [zero(UInt)], v)
 const EMPTY_EXPS = UInt[]
-SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, var(t))
+SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, id)
 Base.similar(p::SparsePoly) = SparsePoly(similar(coeffs(p)), similar(p.exps), var(p))
 
 var(p::SparsePoly) = p.v
@@ -67,7 +67,8 @@ Base.zero(t::SparsePoly) = zero(lt(t))
 Base.one(t::SparsePoly) = one(lt(t))
 
 Base.deleteat!(p::SparsePoly, i::Int) = (deleteat!(p.coeffs, i); deleteat!(p.exps, i); nothing)
-Base.copy(p::SparsePoly) = SparsePoly(deepcopy(coeffs(p)), copy(p.exps), var(p))
+Base.copy(p::SparsePoly) = SparsePoly(copy(coeffs(p)), copy(p.exps), var(p))
+Base.copy(p::SparsePoly{<:AbstractPoly}) = SparsePoly(map(copy, coeffs(p)), copy(p.exps), var(p))
 Base.:(==)(p::SparsePoly, q::SparsePoly) = all(x->x[1] == x[2], zip(terms(p), terms(q)))
 
 function check_poly(x, y)
@@ -164,8 +165,8 @@ Base.:*(x::SparsePoly{T}, y::T) where {T<:AbstractPoly} = y * x
 addcoef(x::Uniterm, c) = (c += coeff(x); return iszero(c), Uniterm(c, monomial(x)))
 addcoef(x::Uniterm, c::Uniterm) = addcoef(x, coeff(c))
 Base.:(-)(x::Uniterm) = Uniterm(-coeff(x), monomial(x))
-subterm!(p::SparsePoly, x) = addterm!(p, -x)
-function addterm!(p::SparsePoly, x)
+sub!(p::SparsePoly, x::Uniterm) = add!(p, -x)
+function add!(p::SparsePoly, x::Uniterm)
     iszero(x) && return p
     for (i, t) in enumerate(terms(p))
         if ismatch(t, x)
@@ -194,7 +195,7 @@ function Base.:(/)(x::Uninomial, y::Uninomial)
     xd >= yd ? (Uninomial(xd - yd, var(x)), false) : (x, true)
 end
 
-# dest = (p * a)^n
+# dest = (p * a).^n
 function mulpow!(dest, p::SparsePoly, a, n::Integer)
     @assert n >= 0
     for i in eachindex(p.exps)
@@ -212,7 +213,9 @@ function pseudorem(p::SparsePoly, d::SparsePoly)
     dd = similar(d)
     while !iszero(p) && degree(p) >= degree(d)
         s = mulpow!(dd, d, lc(p), degree(p) - degree(d))
-        p = p * l - s # TODO: opt
+        #p = p * l - s
+        p = p * l
+        sub!(p, s)
         k -= 1
     end
     return l^k * p
@@ -239,6 +242,12 @@ end
 
 function divexact(a::SparsePoly{T}, b::T) where {T<:AbstractPoly}
     cfs = MPoly[divexact(c, b) for c in coeffs(a)]
+    SparsePoly(cfs, a.exps, var(a))
+end
+
+divexact(c, b) = ((d, r) = divrem(c, b); @assert iszero(r); d;)
+function divexact(a::SparsePoly, b)
+    cfs = [divexact(c, b) for c in coeffs(a)]
     SparsePoly(cfs, a.exps, var(a))
 end
 
@@ -283,6 +292,25 @@ contprim(p) = (c = content(p); (c, divexact(p, c)))
 # y^2 + xy + (5x⁴ + 2x³ + x²)
 #
 # M2P(a, v)
+function emplace_back!(poly, ts, perm, chunk_start_idx, idx, olddegree)
+    v = var(poly)
+    if olddegree > 0
+        t = ts[perm[chunk_start_idx]]
+        coeff = MPoly(term2polycoeff(t, v))
+        for i in chunk_start_idx+1:idx-1
+            t = ts[perm[i]]
+            add!(coeff, term2polycoeff(t, v))
+        end
+    else
+        coeff = MPoly(ts[perm[chunk_start_idx]])
+        for i in chunk_start_idx+1:idx-1
+            add!(coeff, ts[perm[i]])
+        end
+    end
+    push!(poly.exps, olddegree)
+    push!(poly.coeffs, coeff)
+    nothing
+end
 term2polycoeff(t::Term, v::IDType) = Term(t.coeff, Monomial(filter(!isequal(v), monomial(t).ids)))
 function SparsePoly(p::MPoly, v::IDType)
     ts = terms(p)
@@ -292,60 +320,38 @@ function SparsePoly(p::MPoly, v::IDType)
     perm = sortperm(pows, rev=true)
     coeffs = MPoly[]
     exps = UInt[]
+    poly = SparsePoly(coeffs, exps, v)
 
-    sorted_pows = pows[perm]
-    olddegree = sorted_pows[1]
+    olddegree = pows[perm[1]]
     chunk_start_idx = idx = 1
-    while idx <= length(sorted_pows)
-        degree = sorted_pows[idx]
+    while idx <= length(perm)
+        degree = pows[perm[idx]]
         if olddegree != degree # new chunk
-            if olddegree > 0
-                t = ts[perm[chunk_start_idx]]
-                coeff = term2polycoeff(t, v)
-                for i in chunk_start_idx+1:idx-1
-                    t = ts[perm[i]] # TODO
-                    coeff += term2polycoeff(t, v)
-                end
-            else
-                coeff = ts[perm[chunk_start_idx]]
-                for i in chunk_start_idx+1:idx-1
-                    coeff += ts[perm[i]] # TODO
-                end
-            end
-            push!(exps, olddegree)
-            push!(coeffs, coeff)
-
+            emplace_back!(poly, ts, perm, chunk_start_idx, idx, olddegree)
             chunk_start_idx = idx
             olddegree = degree
         end
         idx += 1
     end
     if !isempty(chunk_start_idx:idx-1) # remember to handle the last one
-        if olddegree > 0
-            t = ts[perm[chunk_start_idx]]
-            coeff = term2polycoeff(t, v)
-            for i in chunk_start_idx+1:idx-1
-                t = ts[perm[i]] # TODO
-                coeff += term2polycoeff(t, v)
-            end
-        else
-            coeff = ts[perm[chunk_start_idx]]
-            for i in chunk_start_idx+1:idx-1
-                coeff += ts[perm[i]] # TODO
-            end
-        end
-        push!(coeffs, coeff)
-        push!(exps, olddegree)
+        emplace_back!(poly, ts, perm, chunk_start_idx, idx, olddegree)
     end
-    return SparsePoly(coeffs, exps, v)
+    return poly
 end
 
 function univariate_to_multivariate(g::SparsePoly{<:AbstractPoly})
     cfs = coeffs(g)
     eps = g.exps
     v = var(g)
-    # TODO
-    sum(zip(cfs, eps)) do (c, e)
-        c * Monomial(fill(v, e))
+    @assert !isempty(eps)
+    #sum(zip(cfs, eps)) do (c, e)
+    #    c * Monomial(fill(v, e))
+    #end
+    s = cfs[1] * Monomial(fill(v, eps[1]))
+    for i in 2:length(cfs)
+        c = cfs[i]
+        e = eps[i]
+        add!(s, c * Monomial(fill(v, e)))
     end
+    return s
 end

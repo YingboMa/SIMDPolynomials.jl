@@ -256,12 +256,12 @@ end
 function Base.:*(p::MPoly, x::MPoly)
     sum(t->p * t, terms(x))
 end
-Base.:+(p::MPoly, x::Term) = addterm!(copy(p), x)
-Base.:-(p::MPoly, x::Term) = subterm!(copy(p), x)
+Base.:+(p::MPoly, x::Term) = add!(copy(p), x)
+Base.:-(p::MPoly, x::Term) = sub!(copy(p), x)
 
 Base.:-(p::MPoly) = -1 * p
-subterm!(p::MPoly, x) = addterm!(p, -x)
-function addterm!(p::MPoly, x)
+sub!(p::MPoly, x::Term) = add!(p, -x)
+function add!(p::MPoly, x::Term)
     iszero(x) && return p
     ts = terms(p)
     for (i, t) in enumerate(ts)
@@ -282,20 +282,20 @@ function addterm!(p::MPoly, x)
     return p
 end
 
-function Base.:+(p::AbstractPoly, x::AbstractPoly)
-    s = copy(p)
+function add!(p::AbstractPoly, x::AbstractPoly)
     for t in terms(x)
-        addterm!(s, t)
+        add!(p, t)
     end
-    return s
+    return p
 end
-function Base.:-(p::AbstractPoly, x::AbstractPoly)
-    s = copy(p)
+function sub!(p::AbstractPoly, x::AbstractPoly)
     for t in terms(x)
-        subterm!(s, t)
+        sub!(p, t)
     end
-    return s
+    return p
 end
+Base.:+(p::AbstractPoly, x::AbstractPoly) = add!(copy(p), x)
+Base.:-(p::AbstractPoly, x::AbstractPoly) = sub!(copy(p), x)
 
 lt(p::AbstractPoly) = first(terms(p))
 function rmlt!(p::MPoly)
@@ -304,7 +304,7 @@ function rmlt!(p::MPoly)
     return p
 end
 function takelt!(p::MPoly, x::MPoly)
-    addterm!(p, lt(x))
+    add!(p, lt(x))
     rmlt!(x)
     return p
 end
@@ -318,8 +318,10 @@ function Base.divrem(p::MPoly, d::MPoly)
         if fail
             takelt!(r, p)
         else
-            p -= d * nx
-            q += nx
+            #p -= d * nx
+            #q += nx
+            sub!(p, d * nx)
+            add!(q, nx)
         end
     end
     return q, r
@@ -389,10 +391,9 @@ function Base.gcd(x::MPoly, y::MPoly)
     # trival case
     if iszero(x) || isone(y)
         return y
-    elseif iszero(y) || isone(x)
+    elseif iszero(y) || isone(x) || x == y
         return x
     end
-    x == y && return x
 
     v1, p1 = to_univariate(x)
     v2, p2 = to_univariate(y)
@@ -403,7 +404,7 @@ function Base.gcd(x::MPoly, y::MPoly)
     end
     # v2 < v1
     # both are constants
-    (v1 == NOT_A_VAR && v2 == NOT_A_VAR) && return MPoly(gcd(lt(x), lt(y)))
+    v2 == NOT_A_VAR && return MPoly(gcd(lt(x), lt(y)))
     if v2 < v1
         # `v2` in p2 doesn't exist in `x`, so the gcd at this level is 1 and we
         # just move on to the next level
