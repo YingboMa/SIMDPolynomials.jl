@@ -213,9 +213,9 @@ function pseudorem(p::SparsePoly, d::SparsePoly)
     dd = similar(d)
     while !iszero(p) && degree(p) >= degree(d)
         s = mulpow!(dd, d, lc(p), degree(p) - degree(d))
-        #p = p * l - s
-        p = p * l
-        sub!(p, s)
+        p = p * l - s # TODO: the code below gives wrong result
+        #p = p * l
+        #sub!(p, s)
         k -= 1
     end
     return l^k * p
