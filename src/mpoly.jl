@@ -395,6 +395,131 @@ function Base.gcd(x::MPoly, y::MPoly)
         return x
     end
 
+    deflated_gcd(x, y)
+end
+
+struct VarDict{T} <: AbstractDict{IDType, T}
+    d::Vector{T}
+end
+VarDict{T}() where T = VarDict(Vector{T}(undef, 0))
+function Base.setindex!(d::VarDict, val, i::IDType)
+    i += 1
+    v = d.d
+    n = length(v)
+    if i > n
+        n = i
+        resize!(v, n)
+    end
+    v[i] = val
+end
+function Base.getindex(d::VarDict{T}, i::IDType) where T
+    i += 1
+    i > length(d.d) ? zero(T) : @inbounds d.d[i]
+end
+Base.haskey(d::VarDict, i::IDType) = !(i + 1 > length(d.d))
+
+function hasincidence(d::BitVector, i::IDType)
+    i += 1
+    return i > length(d) ? false : d[i]
+end
+function setincidence!(d::BitVector, i::IDType)
+    i += 1
+    if i > length(d)
+        for j in length(d)+1:i-1
+            push!(d, false)
+        end
+        push!(d, true)
+    else
+        d[i] = true
+    end
+    return d
+end
+
+function deflation(x::MPoly)
+    global_incidence = falses(0)
+    term_incidence = falses(0)
+    minexp = VarDict{Int}()
+    gcds = VarDict{Int}()
+    for t in terms(x)
+        m = monomial(t)
+        fill!(term_incidence, false)
+        if isempty(m.ids)
+            for (j, inc) in enumerate(global_incidence)
+                if inc
+                    cid = IDType(j - 1)
+                    update_minexp_gcds!(minexp, gcds, global_incidence, cid, 0)
+                end
+            end
+            continue
+        end
+        cid = first(m.ids)
+        oldid = cid + 1
+        exp = 0
+        for id in m.ids
+            if cid == id
+                exp += 1
+            else
+                oldid = cid
+                update_minexp_gcds!(minexp, gcds, global_incidence, cid, exp)
+                setincidence!(global_incidence, cid)
+                setincidence!(term_incidence, cid)
+                cid = id
+                exp = 1
+            end
+        end # the last one
+        if cid != oldid
+            update_minexp_gcds!(minexp, gcds, global_incidence, cid, exp)
+            setincidence!(global_incidence, cid)
+            setincidence!(term_incidence, cid)
+        end
+        for (j, inc) in enumerate(term_incidence)
+            if !inc
+                cid = IDType(j - 1)
+                update_minexp_gcds!(minexp, gcds, global_incidence, cid, 0)
+            end
+        end
+    end
+
+    return global_incidence, minexp, gcds
+end
+
+function update_minexp_gcds!(minexp, gcds, global_incidence, cid, exp)
+    if !hasincidence(global_incidence, cid)
+        minexp[cid] = exp
+        gcds[cid] = 0
+    else
+        mexp = minexp[cid]
+        g = gcds[cid]
+        if exp < mexp
+            if !isone(g)
+                gcds[cid] = gcd(g, mexp - exp)
+            end
+            minexp[cid] = exp
+        else
+            if !isone(g)
+                gcds[cid] = gcd(g, exp - mexp)
+            end
+        end
+    end
+    nothing
+end
+
+function deflate!(t::Term, incidence, minexp, gcd)
+    c = coeff(t)
+    m = monomial(t)
+
+    for id in m.ids
+        incidence[id + 1] || error("unreachable")
+    end
+    incidence
+end
+function deflate(f::MPoly, incidence, minexp, gcds)
+    for t in term
+    end
+end
+
+# it's the same as the normal GCD, really
+function deflated_gcd(x::MPoly, y::MPoly)
     v1, p1 = to_univariate(x)
     v2, p2 = to_univariate(y)
     if v1 < v2

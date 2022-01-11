@@ -1,5 +1,3 @@
-# coeff, length, shift_left
-
 struct Uninomial <: AbstractMonomial
     v::IDType
     d::UInt
@@ -195,8 +193,7 @@ function Base.:(/)(x::Uninomial, y::Uninomial)
     xd >= yd ? (Uninomial(xd - yd, var(x)), false) : (x, true)
 end
 
-# dest = (p * a).^n
-function mulpow!(dest, p::SparsePoly, a, n::Integer)
+function mulshift!(dest, p::SparsePoly, a, n::Integer)
     @assert n >= 0
     for i in eachindex(p.exps)
         dest.coeffs[i] = p.coeffs[i] * a
@@ -212,7 +209,7 @@ function pseudorem(p::SparsePoly, d::SparsePoly)
     l = lc(d)
     dd = similar(d)
     while !iszero(p) && degree(p) >= degree(d)
-        s = mulpow!(dd, d, lc(p), degree(p) - degree(d))
+        s = mulshift!(dd, d, lc(p), degree(p) - degree(d))
         p = p * l - s # TODO: the code below gives wrong result
         #p = p * l
         #sub!(p, s)
