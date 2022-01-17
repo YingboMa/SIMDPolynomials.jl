@@ -1,3 +1,4 @@
+debugmode() = false
 const Rat = Union{Rational{<:Integer},Integer}
 
 const IDType = UInt32
@@ -117,7 +118,9 @@ function Base.isless(x::Monomial, y::Monomial)
     dx < dy && return true
     dx > dy && return false
     for i in 1:dx
-        x.ids[i] > y.ids[i] && return true
+        vx = x.ids[i]
+        vy = y.ids[i]
+        vx != vy && return vx > vy
     end
     return false
 end
@@ -261,7 +264,13 @@ Base.:-(p::MPoly, x::Term) = sub!(copy(p), x)
 
 Base.:-(p::MPoly) = -1 * p
 sub!(p::MPoly, x::Term) = add!(p, -x)
+
 function add!(p::MPoly, x::Term)
+    q = _add!(p, x);
+    (debugmode() && !issorted(terms(q), rev=true)) && throw("Polynomial not sorted!")
+    q
+end
+function _add!(p::MPoly, x::Term)
     iszero(x) && return p
     ts = terms(p)
     for (i, t) in enumerate(ts)

@@ -1,6 +1,8 @@
 using LoopPoly
 using Test
 
+LoopPoly.debugmode() = true
+
 @testset "pseudorem" begin
     x = Uninomial(0, 1)
     p = 2x^10 + x^7 + 7*x^2 + x + 3x
