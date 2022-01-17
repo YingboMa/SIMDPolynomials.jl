@@ -1,4 +1,5 @@
 using LoopPoly
+using LoopPoly: lc
 using Test
 
 LoopPoly.debugmode() = true
@@ -13,6 +14,13 @@ LoopPoly.debugmode() = true
     @test pseudorem(p, q) == -40*x^3 + 7*x^2 + 4*x - 20*one(x)
     q = x^6 + 23*one(x)
     @test pseudorem(p, q) == -46*x^4 + 7*x^2 - 19*x
+end
+
+function test_gcd(x, y)
+    g1 = gcd(x, y)
+    g2 = gcd(y, x)
+    @test sign(lc(g1)) * g1 == sign(lc(g1)) * g2
+    return g1
 end
 
 @testset "GCD" begin
@@ -31,28 +39,25 @@ end
     @test coeffs(pp) == [c4, c3, c2, c1]
     @test pp.exps == [e4, e3, e2, e1]
     q = prod(i->p + i, 0:3)
+    @test length(terms(q)) == 262
     for i in 0:3
-        @test gcd(p + i, q) == p + i
+        @test test_gcd(p + i, q) == p + i
     end
 
     k = y^2 + 1
-    @test gcd(x*k, z*k) == k
-    @test gcd(z*k, x*k) == k
-    @test gcd(x*k, (z+1)*k) == k
-    @test gcd((z+1)*k, x*k) == k
-    @test gcd((z+1)*k, x*k) == k
-    @test gcd(x*k, p*k) == k
-    @test gcd(p*k, x*k) == k
+    @test test_gcd(x*k, z*k) == k
+    @test test_gcd(x*k, (z+1)*k) == k
+    @test test_gcd(x*k, p*k) == k
 
     p = 2*x*y
     q = 2*x*y + x
-    @test gcd(p, q) == x
-    @test gcd(q, p) == x
+    @test test_gcd(q, p) == x
 
     p = x*y + y
     q = -x*y - y
-    @test gcd(p, q) == p
-    @test gcd(q, p) == p
+    @test test_gcd(q, p) == p
+
+    @test test_gcd((-x + 1) * (y^2+1), -x+1) == -x + 1
 end
 
 @testset "PackedMonomial" begin

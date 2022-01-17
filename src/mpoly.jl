@@ -313,6 +313,7 @@ Base.:+(p::AbstractPoly, x::AbstractPoly) = add!(copy(p), x)
 Base.:-(p::AbstractPoly, x::AbstractPoly) = sub!(copy(p), x)
 
 lt(p::AbstractPoly) = first(terms(p))
+lc(p::AbstractPoly) = coeff(lt(p))
 function rmlt!(p::MPoly)
     ts = terms(p)
     popfirst!(ts)
