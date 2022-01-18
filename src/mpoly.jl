@@ -234,7 +234,9 @@ function Base.show(io::IO, p::AbstractPoly)
     end
 end
 
-Base.copy(x::MPoly) = MPoly(copy(terms(x)))
+Base.copy(x::Monomial) = Monomial(copy(x.ids))
+Base.copy(x::Term) = Term(copy(coeff(x)), copy(monomial(x)))
+Base.copy(x::MPoly) = MPoly(map(copy, terms(x)))
 #function largercopy(x::MPoly, i::Int)
 #    n = length(terms(x))
 #    terms = similar(terms(x), i + n)
@@ -336,6 +338,18 @@ function Base.divrem(p::MPoly, d::MPoly)
     return q, r
 end
 
+function divexact(p::MPoly, d::MPoly)
+    p = copy(p)
+    q = MPoly(similar(terms(p), 0))
+    while !isempty(terms(p))
+        nx, fail = lt(p) / lt(d)
+        @assert !fail
+        sub!(p, d * nx)
+        add!(q, nx)
+    end
+    return q
+end
+
 function Base.rem(p::AbstractPoly, d::AbstractPoly)
     p = copy(p)
     r = MPoly(similar(terms(p), 0))
@@ -352,9 +366,6 @@ end
 
 function Base.gcd(x::Monomial, y::Monomial)
     g = Monomial(similar(x.ids, 0))
-    a = Monomial(similar(x.ids, 0))
-    b = Monomial(similar(x.ids, 0))
-
     i = j = 1
     n0 = length(x.ids)
     n1 = length(y.ids)
@@ -365,10 +376,8 @@ function Base.gcd(x::Monomial, y::Monomial)
         xk = i <= n0 ? x.ids[i] : M
         yk = j <= n1 ? y.ids[j] : M
         if xk < yk
-            push!(a.ids, xk)
             i += 1
         elseif xk > yk
-            push!(b.ids, yk)
             j += 1
         else
             push!(g.ids, xk)
@@ -376,7 +385,7 @@ function Base.gcd(x::Monomial, y::Monomial)
             j += 1
         end
     end
-    return g#, a, b
+    return g
 end
 
 function Base.gcd(x::Term, y::Term)
@@ -384,12 +393,6 @@ function Base.gcd(x::Term, y::Term)
     g = gcd(monomial(x), monomial(y))
     gr = gcd(x.coeff, y.coeff)
     return Term(gr, g)#, Term(x.coeff / gr, a), Term(y.coeff / gr, b)
-end
-
-function divexact(x::MPoly, y::MPoly)
-    d, r = divrem(x, y)
-    @assert iszero(r)
-    d
 end
 
 Base.:(/)(x::MPoly, y::MPoly) = divexact(x, y)

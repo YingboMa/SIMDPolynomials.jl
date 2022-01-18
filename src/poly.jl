@@ -205,17 +205,52 @@ function mulpow!(dest, p::SparsePoly, a, n::Integer)
     return dest
 end
 
+function fnmadd!(p::SparsePoly, l, s)
+    for li in terms(l)
+        sub!(p, li * s)
+    end
+end
+function mul!(p::SparsePoly, l)
+    cs = coeffs(p)
+    for i in eachindex(cs)
+        cs[i] *= l
+    end
+end
+#=function _copyto!(x::Vector, y::Vector)
+    resize!(x, length(y))
+    copyto!(x, y)
+    nothing
+end
+function Base.copyto!(x::Vector{MPoly}, y::Vector{MPoly})
+    tsx = terms(x)
+    tsy = terms(y)
+    resize!(tsx, length(tsy))
+    for i in eachindex(tsy)
+        tsx[i] = copy(tsy[i])
+    end
+    x
+end
+function Base.copyto!(x::MPoly, y::MPoly)
+    _copyto!(terms(x), terms(y))
+end
+function Base.copyto!(x::SparsePoly, y::SparsePoly)
+    _copyto!(coeffs(x), coeffs(y))
+    _copyto!(x.exps, y.exps)
+end =#
 function pseudorem(p::SparsePoly, d::SparsePoly)
     check_poly(p, d)
     degree(p) < degree(d) && return p
     k = degree(p) - degree(d) + 1
     l = lc(d)
     dd = similar(d)
+    # pp = similar(p)
     while !iszero(p) && degree(p) >= degree(d)
         s = mulpow!(dd, d, lc(p), degree(p) - degree(d))
-        p = p * l - s # TODO: the code below gives wrong result
-        #p = p * l
-        #sub!(p, s)
+        # copyto!(pp, p);
+        # p, pp = pp, p
+        p = copy(p)
+        mul!(p, l)
+        sub!(p, s)
         k -= 1
     end
     return l^k * p
