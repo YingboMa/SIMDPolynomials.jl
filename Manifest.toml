@@ -1,2 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
+[[SIMD]]
+git-tree-sha1 = "39e3df417a0dd0c4e1f89891a281f82f5373ea3b"
+uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
+version = "3.4.0"

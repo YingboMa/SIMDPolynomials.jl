@@ -54,3 +54,18 @@ end
     @test gcd(p, q) == p
     @test gcd(q, p) == p
 end
+
+@testset "PackedMonomial" begin
+    x, y, z, t = [PackedMonomial{4,8}(i) for i in 0:3]
+    m = (x^10 * y^3 * z^2 * t^4)^6
+    n = (x^9 * y^8 * z^3 * t^3)^6
+    g = gcd(m, n)
+    @test g == x^54 * y^18 *z^12 * t^18
+    @test LoopPoly.degree(g) == 54 + 18 + 12 + 18
+    x, y, z, t = [PackedMonomial{4,7}(i) for i in 0:3]
+    m = (x^10 * y^3 * z^2 * t^4)^6
+    @test_throws Base.OverflowError (x^9 * y^8 * z^3 * t^3)^6
+    g = gcd(m, m)
+    @test g == m
+    @test LoopPoly.degree(g) == 60 + 18 + 12 + 24
+end
