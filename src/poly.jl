@@ -1,5 +1,3 @@
-# coeff, length, shift_left
-
 struct Uninomial <: AbstractMonomial
     v::IDType
     d::UInt
@@ -13,12 +11,12 @@ Base.isone(m::Uninomial) = iszero(degree(m))
 Base.one(m::Uninomial) = Uninomial(m.v, 0)
 Base.show(io::IO, m::Uninomial) = print_single_monomial(io, var(m), degree(m))
 
-struct Uniterm{T} <: AbstractTerm
+struct Uniterm{T,M<:AbstractMonomial} <: AbstractTerm
     coeff::T
-    uninomial::Uninomial
+    uninomial::M
 end
 Base.convert(::Type{<:Uniterm}, t::Uninomial) = Uniterm(t)
-#Base.convert(::Type{<:Uniterm}, t::Rat) = Uniterm(t, Uninomial())
+#Base.convert(::Type{<:Uniterm}, t::CoeffType) = Uniterm(t, Uninomial())
 Uniterm(t::Uninomial) = Uniterm(coeff(t), t)
 
 coeff(t::Uniterm) = t.coeff
@@ -46,7 +44,7 @@ struct SparsePoly{T} <: AbstractPoly
 end
 Base.convert(::Type{<:SparsePoly}, m::Uninomial) = SparsePoly(Uniterm(m))
 Base.convert(::Type{<:SparsePoly}, t::Uniterm) = SparsePoly(t)
-#Base.convert(::Type{<:SparsePoly}, t::Rat) = SparsePoly(convert(Uniterm, t))
+#Base.convert(::Type{<:SparsePoly}, t::CoeffType) = SparsePoly(convert(Uniterm, t))
 SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], [degree(t)], var(t))
 SparsePoly(c::Number, v) = SparsePoly([c], [zero(UInt)], v)
 const EMPTY_EXPS = UInt[]
@@ -126,8 +124,8 @@ function Base.:(+)(x::Uniterm, y::Uniterm)
         return SparsePoly([coeff(x), coeff(y)], [degree(x), degree(y)], var(x))
     end
 end
-Base.:(*)(x::Rat, y::Uninomial) = Uniterm(x, y)
-Base.:(*)(x::Uninomial, y::Rat) = y * x
+Base.:(*)(x::CoeffType, y::Uninomial) = Uniterm(x, y)
+Base.:(*)(x::Uninomial, y::CoeffType) = y * x
 
 function Base.:(*)(x::Uninomial, y::Uninomial)
     check_poly(x, y)
@@ -152,13 +150,13 @@ function Base.:*(p::SparsePoly, x::Uniterm)
         return SparsePoly(cfs, exps, var(x))
     end
 end
-Base.:*(x::Rat, y::Uniterm) = Uniterm(x * coeff(y), monomial(y))
-Base.:*(x::Uniterm, y::Rat) = y * x
+Base.:*(x::CoeffType, y::Uniterm) = Uniterm(x * coeff(y), monomial(y))
+Base.:*(x::Uniterm, y::CoeffType) = y * x
 
 Base.:*(x::SparsePoly, y::SparsePoly) = sum(t->x * t, terms(y))
 smul(x, y::SparsePoly) = SparsePoly(x * coeffs(y), y.exps, var(y))
-Base.:*(x::Rat, y::SparsePoly) = smul(x, y)
-Base.:*(x::SparsePoly, y::Rat) = y * x
+Base.:*(x::CoeffType, y::SparsePoly) = smul(x, y)
+Base.:*(x::SparsePoly, y::CoeffType) = y * x
 Base.:*(x::T, y::SparsePoly{T}) where {T<:AbstractPoly} = smul(x, y)
 Base.:*(x::SparsePoly{T}, y::T) where {T<:AbstractPoly} = y * x
 

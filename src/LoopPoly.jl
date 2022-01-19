@@ -7,8 +7,13 @@ export mpoly2poly
 export univariate_gcd, pseudorem
 export PackedMonomial
 
-include("mpoly.jl")
+debugmode() = false
+
+include("interface.jl")
+include("utils.jl")
+include("monomial.jl")
 include("packedmonomial.jl")
-include("poly.jl")
+include("mpoly.jl")
+#include("poly.jl")
 
 end
