@@ -73,4 +73,34 @@ end
     g = gcd(m, m)
     @test g == m
     @test LoopPoly.degree(g) == 60 + 18 + 12 + 24
+
+    c1 = 10*(x * z + x)
+    c2 = 2*(x^2 + z)
+    c3 = 2*(2 - z  )
+    c4 = 20*(x * z^2)
+    e1 = 0
+    e2 = 5
+    e3 = 7
+    e4 = 10
+    p = c1 * y^e1 + c2 * y^e2 + c3 * y^e3 + c4 * y^e4
+    q = prod(i->p + i, 0:3)
+    @test length(terms(q)) == 262
+    for i in 0:3
+        @test test_gcd(p + i, q) == p + i
+    end
+
+    k = y^2 + 1
+    @test test_gcd(x*k, z*k) == k
+    @test test_gcd(x*k, (z+1)*k) == k
+    @test test_gcd(x*k, p*k) == k
+
+    p = 2*x*y
+    q = 2*x*y + x
+    @test test_gcd(q, p) == x
+
+    p = x*y + y
+    q = -x*y - y
+    @test test_gcd(q, p) == p
+
+    @test test_gcd((-x + 1) * (y^2+1), -x+1) == -x + 1
 end

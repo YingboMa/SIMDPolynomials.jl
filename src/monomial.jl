@@ -9,6 +9,10 @@ Monomial() = Monomial(EMPTY_IDS)
 degree(x::Monomial) = length(x.ids)
 Base.copy(x::Monomial) = Monomial(copy(x.ids))
 
+firstid(m::Monomial) = m.ids[1]
+degree(m::Monomial, id) = count(isequal(id), m.ids)
+rmid(m::Monomial, id) = Monomial(filter(!isequal(id), m.ids))
+
 const VARNAME_DICT = Dict{IDType, String}(0 => "x", 1 => "y", 2 => "z")
 const SUPERSCRIPTS = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹']
 const LOWERSCRIPTS = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉']

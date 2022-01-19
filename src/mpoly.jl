@@ -136,8 +136,8 @@ end
 # TODO
 Base.:(/)(x::MPoly, y::MPoly) = divexact(x, y)
 
-Base.gcd(x::AbstractTerm, y::MPoly) = gcd(MPoly(x), y)
-Base.gcd(x::MPoly, y::AbstractTerm) = gcd(y, x)
+Base.gcd(x::Union{AbstractTerm,AbstractMonomial}, y::MPoly) = gcd(MPoly(x), y)
+Base.gcd(x::MPoly, y::Union{AbstractTerm,AbstractMonomial}) = gcd(y, x)
 function Base.gcd(x::MPoly, y::MPoly)
     # trival case
     if iszero(x) || isone(y)
@@ -173,13 +173,13 @@ function pick_var(x::MPoly)
     for (i, t) in enumerate(ts)
         if degree(t) > 0
             m = monomial(t)
-            vv = m.ids[1] # get the minvar
+            vv = firstid(m) # get the minvar
             if vv < v
                 v = vv
             end
         end
     end
-    return v
+    return IDType(v)
 end
 
 function to_univariate(x::MPoly)

@@ -336,11 +336,11 @@ function emplace_back!(poly, ts, perm, chunk_start_idx, idx, olddegree)
     push!(poly.coeffs, coeff)
     nothing
 end
-term2polycoeff(t::Term, v::IDType) = Term(t.coeff, Monomial(filter(!isequal(v), monomial(t).ids)))
+term2polycoeff(t::Term, v::IDType) = Term(coeff(t), rmid(monomial(t), v))
 function SparsePoly(p::MPoly, v::IDType)
     ts = terms(p)
     pows = map(ts) do t
-        count(isequal(v), monomial(t).ids)
+        degree(monomial(t), v)
     end
     perm = sortperm(pows, rev=true)
     coeffs = typeof(p)[]
@@ -364,7 +364,8 @@ function SparsePoly(p::MPoly, v::IDType)
     return poly
 end
 
-function univariate_to_multivariate(g::SparsePoly{<:AbstractPolynomial})
+univariate_to_multivariate(g::SparsePoly{<:AbstractPolynomial}) = univariate_to_multivariate(g, monomialtype(lc(g)))
+function univariate_to_multivariate(g, ::Type{<:Monomial})
     cfs = coeffs(g)
     eps = g.exps
     v = var(g)
@@ -377,6 +378,20 @@ function univariate_to_multivariate(g::SparsePoly{<:AbstractPolynomial})
         c = cfs[i]
         e = eps[i]
         add!(s, c * Monomial(fill(v, e)))
+    end
+    return s
+end
+
+function univariate_to_multivariate(g, P::Type{<:PackedMonomial})
+    cfs = coeffs(g)
+    eps = g.exps
+    v = var(g)
+    @assert !isempty(eps)
+    s = cfs[1] * P(v)^eps[1]
+    for i in 2:length(cfs)
+        c = cfs[i]
+        e = eps[i]
+        add!(s, c * P(v)^e)
     end
     return s
 end

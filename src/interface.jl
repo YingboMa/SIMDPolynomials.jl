@@ -18,6 +18,7 @@ Base.:+(y::T, x::T) where {T <: AbstractMonomial} = Term(y) + Term(x)
 Base.:*(c::CoeffType, m::AbstractMonomial) = Term(c, m)
 Base.:*(m::AbstractMonomial, c::CoeffType) = c * m
 Base.:^(y::T, n::Integer) where {T <: AbstractMonomial} = iszero(n) ? T() : Base.power_by_squaring(y, n)
+monomialtype(x::AbstractMonomial) = typeof(x)
 
 ###
 ### AbstractTerm: `coeff` and `monomial`
@@ -38,6 +39,8 @@ Base.isone(x::AbstractTerm) = isone(coeff(x)) && isone(monomial(x))
 Base.zero(t::T) where {T<:AbstractTerm} = parameterless_type(T)(zero(coeff(t)), one(monomial(t)))
 Base.one(t::T) where {T<:AbstractTerm} = parameterless_type(T)(one(coeff(t)), one(monomial(t)))
 Base.isinteger(x::AbstractTerm) = isinteger(coeff(x))
+
+monomialtype(x::AbstractTerm) = monomialtype(monomial(x))
 
 Base.:*(x::T, y::T) where {T<:AbstractTerm} = T(coeff(x) * coeff(y), monomial(x) * monomial(y))
 # TODO
@@ -126,6 +129,7 @@ Base.promote_rule(p::Type{<:AbstractPolynomial}, ::Type{<:CoeffType}) = p
 Base.iszero(x::AbstractPolynomial) = isempty(terms(x))
 Base.isone(x::AbstractPolynomial) = (ts = terms(x); length(ts) == 1 && isone(only(ts)))
 Base.:(==)(x::T, y::T) where {T<:AbstractPolynomial} = x === y || (terms(x) == terms(y))
+monomialtype(p::AbstractPolynomial) = monomialtype(lt(p))
 
 function Base.show(io::IO, p::AbstractPolynomial)
     ts = terms(p)
