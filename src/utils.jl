@@ -55,3 +55,7 @@ end
 function _fmap(f::F, x::Tuple{Vararg{Any,K}}, y) where {K,F}
     ntuple(GetWithShift3(f, x, y), Val(K))
 end
+
+Base.@pure __parameterless_type(T) = Base.typename(T).wrapper
+parameterless_type(x) = parameterless_type(typeof(x))
+parameterless_type(x::Type) = __parameterless_type(x)

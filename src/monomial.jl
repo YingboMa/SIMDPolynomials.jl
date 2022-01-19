@@ -22,7 +22,11 @@ end
 function print_single_monomial(io, v, o, star=false)
     iszero(o) && return print(io, 1)
     star && (PRETTY_PRINT[] || print(io, '*'))
-    print(io, VARNAME_DICT[v])
+    if v == DO_NOT_CHECK_VAR || v === nothing
+        print(io, "◌")
+    else
+        print(io, VARNAME_DICT[v])
+    end
     if o > 1
         if PRETTY_PRINT[]
             print(io, int2superscript(o))

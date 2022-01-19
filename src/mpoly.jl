@@ -1,44 +1,62 @@
+abstract type AbstractMultivariatePolynomial{T,M} <: AbstractPolynomial end
+abstract type AbstractUnivariatePolynomial{T,M} <: AbstractMultivariatePolynomial{T,M} end
+const AMP{T,M} = AbstractMultivariatePolynomial{T,M}
+#Base.promote_rule(t::Type{<:AMP{T,Nothing}}, ::Type{<:AMP{T}}) where {T} = t
 # default polynomial type
-struct MPoly{T} <: AbstractPolynomial
+struct MPoly{T,M} <: AMP{T,M}
     terms::T
+    metadata::M
 end
-#MPoly() = MPoly(EMPTY_TERMS)
-MPoly(x::AbstractTerm) = MPoly([x])
-MPoly(x::Union{CoeffType,M}) where {M<:AbstractMonomial} = MPoly(Term(x))
-terms(x::MPoly) = x.terms
 
-Base.copy(x::MPoly) = MPoly(map(copy, terms(x)))
+(P::Type{<:AMP})(x) = parameterless_type(P)(x, nothing)
+(P::Type{<:AMP})(x::AbstractTerm) = parameterless_type(P)([dropmetadata(x)], metadata(x))
+function (P::Type{<:AMP{T}})(x::Union{CoeffType,<:AbstractMonomial}) where {T}
+    TT = eltype(T)
+    parameterless_type(P)(Term{coefftype(TT),monomialtype(TT)}(x))
+end
 
-Base.:*(x::AbstractTerm, p::MPoly) = p * x
-function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}
+terms(x::AMP) = x.terms
+metadata(x::AMP) = x.metadata
+
+_copy(x) = copy(x)
+_copy(x::Nothing) = x
+Base.copy(x::P) where {P<:AMP} = P(map(copy, terms(x)), _copy(metadata(x)))
+
+Base.:*(x::AbstractTerm, p::AMP) = p * x
+function Base.:*(p::K, x::T1) where {K<:AMP,T1<:AbstractTerm}
+    v = checkmetadata(p, x)
+    P = parameterless_type(K)
+    T = dropmetadata(T1)
     if iszero(x)
-        return MPoly(emptyterm(T))
+        return P(emptyterm(T), v)
     elseif isone(x)
         return p
     else
-        MPoly(T[t * x for t in terms(p) if !iszero(t)])
+        P(T[t * x for t in terms(p) if !iszero(t)], v)
     end
 end
-Base.:*(p::MPoly, x::MPoly) = sum(t->p * t, terms(x))
-Base.:+(p::MPoly, x::AbstractTerm) = add!(copy(p), x)
-Base.:-(p::MPoly, x::AbstractTerm) = sub!(copy(p), x)
+Base.:*(p::AMP, x::AMP) = sum(t->p * t, terms(x))
+Base.:+(p::AMP, x::AbstractTerm) = add!(copy(p), x)
+Base.:-(p::AMP, x::AbstractTerm) = sub!(copy(p), x)
 
-Base.:-(p::MPoly) = -1 * p
-sub!(p::MPoly, x::AbstractTerm) = add!(p, -x)
+Base.:-(p::AMP) = -1 * p
+sub!(p::AMP, x::AbstractTerm) = add!(p, -x)
 
-addcoef(x::T, c) where {T<:AbstractTerm} = (c += coeff(x); return iszero(c), T(c, monomial(x)))
+addcoef(x::T, c) where {T<:AbstractTerm} = (c += coeff(x); return iszero(c), parameterless_type(T)(c, monomial(x)))
 addcoef(x::T, c::T) where {T<:AbstractTerm} = addcoef(x, c.coeff)
-subcoef(x::T, c) where {T<:AbstractTerm} = (c = coeff(x) - c; return iszero(c), T(c, monomial(x)))
+subcoef(x::T, c) where {T<:AbstractTerm} = (c = coeff(x) - c; return iszero(c), parameterless_type(T)(c, monomial(x)))
 subcoef(x::T, c::T) where {T<:AbstractTerm} = subcoef(x, c.coeff)
 
-function add!(p::MPoly, x::AbstractTerm)
+function add!(p::AMP, x::AbstractTerm)
     q = _add!(p, x);
     (debugmode() && !issorted(terms(q), rev=true)) && throw("Polynomial not sorted!")
     q
 end
-function _add!(p::MPoly, x::AbstractTerm)
+function _add!(p::AMP, x::AbstractTerm)
     iszero(x) && return p
     ts = terms(p)
+    # TODO: remove this line cause bugs
+    x = dropmetadata(x)
     for (i, t) in enumerate(ts)
         if ismatch(t, x)
             iz, t = addcoef(t, x)
@@ -72,8 +90,6 @@ end
 Base.:+(p::AbstractPolynomial, x::AbstractPolynomial) = add!(copy(p), x)
 Base.:-(p::AbstractPolynomial, x::AbstractPolynomial) = sub!(copy(p), x)
 
-lt(p::AbstractPolynomial) = first(terms(p))
-lc(p::AbstractPolynomial) = coeff(lt(p))
 function rmlt!(p::MPoly)
     ts = terms(p)
     popfirst!(ts)
@@ -180,5 +196,5 @@ end
 
 function to_univariate(x::MPoly)
     v = pick_var(x)
-    v, (v == NOT_A_VAR ? nothing : SparsePoly(x, v))
+    v, (v == NOT_A_VAR ? nothing : SPoly(x, v))
 end
