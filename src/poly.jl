@@ -246,13 +246,41 @@ function pseudorem(p::SparsePoly, d::SparsePoly)
     return l^k * p
 end
 
+function termwise_content(a::MPoly)
+    ts = terms(a)
+    length(ts) == 1 && return ts[1]
+    g = gcd(ts[1], ts[2])
+    isone(g) || for i in 3:length(ts)
+        g = gcd(g, ts[i])
+        isone(g) && break
+    end
+    g
+end
+
 function content(a::SparsePoly)
     cfs = coeffs(a)
     length(cfs) == 1 && return first(cfs)
+    # If any coeff here is a multivariate polynomial with only one term, then we
+    # just need to compute the termwize content.
+    MP = eltype(cfs)
+    if MP <: AbstractPolynomial
+        for i in eachindex(cfs)
+            ts = terms(cfs[i])
+            if length(ts) == 1
+                g = gcd(termwise_content(cfs[1]), termwise_content(cfs[2]))
+                isone(g) || for i in 3:length(cfs)
+                    g = gcd(g, termwise_content(cfs[i]))
+                    isone(g) && break
+                end
+                return MP(g)
+            end
+        end
+    end
+
     g = gcd(cfs[1], cfs[2])
-    # TODO: short circuit and split to small terms
-    for i in 3:length(cfs)
+    isone(g) || for i in 3:length(cfs)
         g = gcd(g, cfs[i])
+        isone(g) && break
     end
     g
 end
