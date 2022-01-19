@@ -19,7 +19,7 @@ end
 function test_gcd(x, y)
     g1 = gcd(x, y)
     g2 = gcd(y, x)
-    @test sign(lc(g1)) * g1 == sign(lc(g1)) * g2
+    @test sign(lc(g1)) * g1 == sign(lc(g2)) * g2
     return g1
 end
 

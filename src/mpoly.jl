@@ -23,7 +23,14 @@ function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}
         MPoly(T[t * x for t in terms(p) if !iszero(t)])
     end
 end
-Base.:*(p::MPoly, x::MPoly) = sum(t->p * t, terms(x))
+function Base.:*(p::MPoly, x::MPoly)
+    ts = terms(x)
+    s = p * ts[1]
+    for i in 2:length(ts)
+        add!(s, p * ts[i])
+    end
+    return s
+end
 Base.:+(p::MPoly, x::AbstractTerm) = add!(copy(p), x)
 Base.:-(p::MPoly, x::AbstractTerm) = sub!(copy(p), x)
 
