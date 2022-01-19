@@ -3,11 +3,15 @@ struct MPoly{T} <: AbstractPolynomial
     terms::T
 end
 #MPoly() = MPoly(EMPTY_TERMS)
-MPoly(x::AbstractTerm) = MPoly([x])
-MPoly(x::Union{CoeffType,M}) where {M<:AbstractMonomial} = MPoly(Term(x))
+#MPoly(x::AbstractTerm) = MPoly([x])
+#MPoly(x::M) where {M<:AbstractMonomial} = MPoly(Term(x))
+MPoly{T}(x::AbstractTerm) where T = MPoly([x])
+MPoly{T}(x::M) where {T,M<:AbstractMonomial} = MPoly(Term(x))
+MPoly{T}(x::CoeffType) where {T} = MPoly(eltype(T)(x))
 terms(x::MPoly) = x.terms
 
 Base.copy(x::MPoly) = MPoly(map(copy, terms(x)))
+Base.one(::Type{<:MPoly{T}}) where T = MPoly(eltype(T)(1))
 
 Base.:*(x::AbstractTerm, p::MPoly) = p * x
 function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}

@@ -11,6 +11,7 @@ const CoeffType = Union{Rational{<:Integer},Integer}
 abstract type AbstractMonomial <: Number end
 
 Base.isone(x::AbstractMonomial) = iszero(degree(x))
+Base.one(::Type{<:T}) where {T<:AbstractMonomial} = T()
 
 Base.:-(y::AbstractMonomial) = Term(-1, y)
 Base.:+(y::T, x::T) where {T <: AbstractMonomial} = Term(y) + Term(x)
@@ -34,6 +35,8 @@ Base.copy(x::T) where {T<:AbstractTerm} = T(copy(coeff(x)), copy(monomial(x)))
 Base.isless(x::T, y::T) where {T<:AbstractTerm} = isless(monomial(x), monomial(y))
 Base.iszero(x::AbstractTerm) = iszero(coeff(x))
 Base.isone(x::AbstractTerm) = isone(coeff(x)) && isone(monomial(x))
+Base.zero(t::T) where {T<:AbstractTerm} = parameterless_type(T)(zero(coeff(t)), one(monomial(t)))
+Base.one(t::T) where {T<:AbstractTerm} = parameterless_type(T)(one(coeff(t)), one(monomial(t)))
 Base.isinteger(x::AbstractTerm) = isinteger(coeff(x))
 
 Base.:*(x::T, y::T) where {T<:AbstractTerm} = T(coeff(x) * coeff(y), monomial(x) * monomial(y))
@@ -106,8 +109,10 @@ end
 coeff(x::Term) = x.coeff
 monomial(x::Term) = x.monomial
 Term{M}(x) where {M<:AbstractMonomial} = Term(x, M())
-Term(x::M) where {M<:AbstractMonomial} = Term(1, M())
-const EMPTY_TERM = Term[]
+Term(x::M) where {M<:AbstractMonomial} = Term(1, x)
+Term{A,B}(x::M) where {A,B,M<:AbstractMonomial} = Term(1, x)
+Term{A,B}(x) where {A,B} = Term(x, B())
+#const EMPTY_TERM = Term[]
 
 ###
 ### AbstractPolynomial: terms, copy

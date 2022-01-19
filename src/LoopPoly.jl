@@ -14,6 +14,6 @@ include("utils.jl")
 include("monomial.jl")
 include("packedmonomial.jl")
 include("mpoly.jl")
-#include("poly.jl")
+include("poly.jl")
 
 end
