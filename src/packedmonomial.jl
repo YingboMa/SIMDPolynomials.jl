@@ -34,12 +34,17 @@ struct PackedMonomial{L,E,K} <: AbstractMonomial
     bits::NTuple{K,UInt64}
     function PackedMonomial{L,E}() where {L,E}
         EN = new_E(Val(E))
-        PackedMonomial{L,EN}(ntuple(Returns(zero(UInt64)), calc_K(Val(L),Val(EN))))
+        K = calc_K(Val(L),Val(EN))
+        PackedMonomial{L,EN,K}()
+    end
+    function PackedMonomial{L,E,K}() where {L,E,K}
+        PackedMonomial{L,E,K}(ntuple(Ret(zero(UInt64)), Val(K)))
     end
     PackedMonomial{L,E}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
     PackedMonomial{L,E,K}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
 end
 
+PackedMonomial{L,E,K}(i::Integer) where {L,E,K} = PackedMonomial{L,E}(i)
 function PackedMonomial{L,OE}(i::Integer) where {L,OE} # x_i
     @assert i < L
     E = new_E(Val(OE))
@@ -57,8 +62,6 @@ function PackedMonomial{L,OE}(i::Integer) where {L,OE} # x_i
     t = Base.setindex(t, b, d+1)
     PackedMonomial{L,E}(t)
 end
-
-
 
 function degree(p::PackedMonomial{L,E}) where {L,E}
     (p.bits[1] >> ((E+1) * (var_per_UInt64(Val(E))-1))) % Int
@@ -142,63 +145,6 @@ end
     zero_bits(x, Val(E)) != zero(UInt64)
 end
 
-@generated function reduce_tup(f::F, inds::Tuple{Vararg{Any,N}}) where {F,N}
-    q = Expr(:block, Expr(:meta, :inline, :propagate_inbounds))
-    if N == 1
-        push!(q.args, :(inds[1]))
-        return q
-    end
-    syms = Vector{Symbol}(undef, N)
-    i = 0
-    for n ∈ 1:N
-        syms[n] = iₙ = Symbol(:i_, (i += 1))
-        push!(q.args, Expr(:(=), iₙ, Expr(:ref, :inds, n)))
-    end
-    W =  1 << (8sizeof(N) - 2 - leading_zeros(N))
-    while W > 0
-        _N = length(syms)
-        for _ ∈ 2W:W:_N
-            for w ∈ 1:W
-                new_sym = Symbol(:i_, (i += 1))
-                push!(q.args, Expr(:(=), new_sym, Expr(:call, :f, syms[w], syms[w+W])))
-                syms[w] = new_sym
-            end
-            deleteat!(syms, 1+W:2W)
-        end
-        W >>>= 1
-    end
-    q
-end
-
-struct GetWithShift{F,T}
-    f::F
-    tup::T
-    shift::Int
-end
-(g::GetWithShift)(i) = g.f(g.tup[i + g.shift])
-
-struct GetWithShift2{F,T}
-    f::F
-    tup1::T
-    tup2::T
-end
-(g::GetWithShift2)(i) = g.f(g.tup1[i], g.tup2[i])
-struct GetWithShift3{F,T,S}
-    f::F
-    tup::T
-    s::S
-end
-(g::GetWithShift3)(i) = g.f(g.tup[i], g.s)
-
-function _fmap(f::F, x::Tuple{Vararg{Any,K}}) where {K,F}
-    ntuple(GetWithShift(f, x, 0), Val(K))
-end
-function _fmap(f::F, x::Tuple{Vararg{Any,K}}, y::Tuple{Vararg{Any,K}}) where {K,F}
-    ntuple(GetWithShift2(f, x, y), Val(K))
-end
-function _fmap(f::F, x::Tuple{Vararg{Any,K}}, y) where {K,F}
-    ntuple(GetWithShift3(f, x, y), Val(K))
-end
 function Base.:*(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
     xys = _fmap(+, x.bits, y.bits)
     o = reduce_tup(|, _fmap(Base.Fix2(zero_bits, Val(E)), xys))
@@ -210,8 +156,8 @@ function Base.:/(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
     xys = _fmap(-, x.bits, y.bits)
     o = reduce_tup(|, _fmap(Base.Fix2(zero_bits, Val(E)), xys))
 
-    o != zero(UInt64) && overflowed_error()
-    return T(xys)
+    #o != zero(UInt64) && overflowed_error()
+    return T(xys), o != zero(UInt64)
 end
 function Base.:^(x::T, y::Integer) where {L,E,T<:PackedMonomial{L,E}}
     xys = _fmap(*, x.bits, y)
@@ -219,6 +165,55 @@ function Base.:^(x::T, y::Integer) where {L,E,T<:PackedMonomial{L,E}}
 
     o != zero(UInt64) && overflowed_error()
     return T(xys)
+end
+zero_nondegreemask(::Val{7 }) = 0xff00000000000000
+zero_nondegreemask(::Val{15}) = 0xffff000000000000
+zero_nondegreemask(::Val{31}) = 0xffffffff00000000
+zero_nondegreemask(::Val{63}) = 0xffffffffffffffff
+function firstid(m::PackedMonomial{L,E,K}) where {L,E,K}
+    b = m.bits[1] & (~zero_nondegreemask(Val(E)))
+    if (b != zero(b))
+        return (leading_zeros(b) ÷ (E+1)) - 1
+    end
+    vpu = var_per_UInt64(Val(E))
+    b = vpu - 1
+    for k in 2:K
+        bk = m.bits[k]
+        if (bk != zero(bk))
+            return (leading_zeros(bk) ÷ (E+1)) + b
+        end
+        b += vpu
+    end
+    error("firstTermID should only be called if degree > 0.");
+    return 0
+end
+
+function degree(m::PackedMonomial{L,E,K}, id) where {L,E,K}
+    vpu = var_per_UInt64(Val(E))
+    d = K == 1 ? 0 : (id + 1) ÷ vpu
+    r = (id + 1) - (d * vpu)
+    b = m.bits[d+1] << (r * (E + 1))
+    return b >> ((E + 1) * (vpu - 1))
+end
+
+function rmid(x::T, id) where {L,E,K,T<:PackedMonomial{L,E,K}}
+    bits = x.bits
+    vpu = var_per_UInt64(Val(E))
+    d = K == 1 ? 0 : (id + 1) ÷ vpu
+    r = (id + 1) - (d * vpu)
+    m = zero_nondegreemask(Val(E)) >> (r*(E+1))
+    oldBits = bits[d+1]
+    b = oldBits & (~m)
+    remDegree = (oldBits & m) >> ((E+1)*(vpu-1-r))
+
+    o = remDegree << ((E + 1) * (vpu - 1))
+    if d != zero(d)
+        bits = Base.setindex(bits, b, d+1)
+        bits = Base.setindex(bits, bits[1] - o, 1)
+    else
+        bits = Base.setindex(bits, b - o, 1)
+    end
+    return T(bits)
 end
 
 function Base.show(io::IO, m::PackedMonomial{L,E}) where {L,E}

@@ -1,39 +1,29 @@
-# coeff, length, shift_left
-
 struct Uninomial <: AbstractMonomial
     v::IDType
     d::UInt
 end
+
 Base.isless(x::Uninomial, y::Uninomial) = isless(degree(x), degree(y))
-degree(m::Uninomial) = m.d
+degree(m::Uninomial) = Int(m.d)
 var(m::Uninomial) = m.v
 
 coeff(m::Uninomial) = 1
-Base.isone(m::Uninomial) = iszero(degree(m))
 Base.one(m::Uninomial) = Uninomial(m.v, 0)
 Base.show(io::IO, m::Uninomial) = print_single_monomial(io, var(m), degree(m))
 
-struct Uniterm{T} <: AbstractTerm
+struct Uniterm{T,M<:AbstractMonomial} <: AbstractTerm
     coeff::T
-    uninomial::Uninomial
+    uninomial::M
 end
 Base.convert(::Type{<:Uniterm}, t::Uninomial) = Uniterm(t)
-#Base.convert(::Type{<:Uniterm}, t::Rat) = Uniterm(t, Uninomial())
+#Base.convert(::Type{<:Uniterm}, t::CoeffType) = Uniterm(t, Uninomial())
 Uniterm(t::Uninomial) = Uniterm(coeff(t), t)
 
 coeff(t::Uniterm) = t.coeff
 monomial(t::Uniterm) = t.uninomial
 var(t::Uniterm) = var(monomial(t))
 
-degree(t::Uniterm) = degree(monomial(t))
-Base.isless(x::Uniterm, y::Uniterm) = isless(monomial(x), monomial(y))
-
-Base.iszero(t::Uniterm) = iszero(coeff(t))
-Base.isone(x::Uniterm) = isone(coeff(x)) && isone(monomial(x))
-Base.zero(t::Uniterm) = Uniterm(zero(coeff(t)), one(monomial(t)))
-Base.one(t::Uniterm) = Uniterm(one(coeff(t)), one(monomial(t)))
-
-struct SparsePoly{T} <: AbstractPoly
+struct SparsePoly{T} <: AbstractPolynomial
     coeffs::Vector{T}
     exps::Vector{UInt}
     v::IDType
@@ -46,11 +36,11 @@ struct SparsePoly{T} <: AbstractPoly
 end
 Base.convert(::Type{<:SparsePoly}, m::Uninomial) = SparsePoly(Uniterm(m))
 Base.convert(::Type{<:SparsePoly}, t::Uniterm) = SparsePoly(t)
-#Base.convert(::Type{<:SparsePoly}, t::Rat) = SparsePoly(convert(Uniterm, t))
-SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], [degree(t)], var(t))
+#Base.convert(::Type{<:SparsePoly}, t::CoeffType) = SparsePoly(convert(Uniterm, t))
+SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], UInt[degree(t)], var(t))
 SparsePoly(c::Number, v) = SparsePoly([c], [zero(UInt)], v)
 const EMPTY_EXPS = UInt[]
-SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, id)
+#SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, id)
 Base.similar(p::SparsePoly) = SparsePoly(similar(coeffs(p)), similar(p.exps), var(p))
 
 var(p::SparsePoly) = p.v
@@ -60,7 +50,7 @@ term(p::SparsePoly, i) = Uniterm(p.coeffs[i], Uninomial(var(p), p.exps[i]))
 terms(p::SparsePoly) = (term(p, i) for i in eachindex(coeffs(p)))
 lt(p::SparsePoly) = term(p, 1)
 lc(p::SparsePoly) = coeff(p, 1)
-degree(p::SparsePoly) = iszero(p) ? -1 : p.exps[1]
+degree(p::SparsePoly) = iszero(p) ? -1 : Int(p.exps[1])
 Base.iszero(p::SparsePoly) = isempty(p.exps) || iszero(lt(p))
 
 Base.zero(t::SparsePoly) = zero(lt(t))
@@ -68,7 +58,7 @@ Base.one(t::SparsePoly) = one(lt(t))
 
 Base.deleteat!(p::SparsePoly, i::Int) = (deleteat!(p.coeffs, i); deleteat!(p.exps, i); nothing)
 Base.copy(p::SparsePoly) = SparsePoly(copy(coeffs(p)), copy(p.exps), var(p))
-Base.copy(p::SparsePoly{<:AbstractPoly}) = SparsePoly(map(copy, coeffs(p)), copy(p.exps), var(p))
+Base.copy(p::SparsePoly{<:AbstractPolynomial}) = SparsePoly(map(copy, coeffs(p)), copy(p.exps), var(p))
 Base.:(==)(p::SparsePoly, q::SparsePoly) = all(x->x[1] == x[2], zip(terms(p), terms(q)))
 
 function check_poly(x, y)
@@ -86,7 +76,7 @@ function print_poly_term(io, t)
     nothing
 end
 
-function Base.show(io::IO, p::SparsePoly{<:AbstractPoly})
+function Base.show(io::IO, p::SparsePoly{<:AbstractPolynomial})
     ts = terms(p)
     if isempty(ts)
         print(io, 0)
@@ -118,16 +108,29 @@ function Base.:(+)(x::Uniterm, y::Uniterm)
     check_poly(x, y)
     if ismatch(x, y)
         c = x.coeff + y.coeff
-        return iszero(c) ? SparsePoly(x, var(x)) : SparsePoly(Uniterm(c, monomial(x)))
+        return iszero(c) ? SparsePoly(typeof(x)[], EMPTY_EXPS, var(x)) : SparsePoly(Uniterm(c, monomial(x)))
     else
-        if x < y
-            x, y = y, x
+        if iszero(x) && iszero(y)
+            c = coeff(y)
+            return SparsePoly(typeof(c)[], EMPTY_EXPS, var(x))
+        elseif iszero(x)
+            exp = degree(y)
+            c = coeff(y)
+            return SparsePoly([c], UInt[exp], var(x))
+        elseif iszero(y)
+            exp = degree(x)
+            c = coeff(x)
+            return SparsePoly([c], UInt[exp], var(x))
+        else
+            if x < y
+                x, y = y, x
+            end
+            return SparsePoly([coeff(x), coeff(y)], UInt[degree(x), degree(y)], var(x))
         end
-        return SparsePoly([coeff(x), coeff(y)], [degree(x), degree(y)], var(x))
     end
 end
-Base.:(*)(x::Rat, y::Uninomial) = Uniterm(x, y)
-Base.:(*)(x::Uninomial, y::Rat) = y * x
+Base.:(*)(x::CoeffType, y::Uninomial) = Uniterm(x, y)
+Base.:(*)(x::Uninomial, y::CoeffType) = y * x
 
 function Base.:(*)(x::Uninomial, y::Uninomial)
     check_poly(x, y)
@@ -152,15 +155,15 @@ function Base.:*(p::SparsePoly, x::Uniterm)
         return SparsePoly(cfs, exps, var(x))
     end
 end
-Base.:*(x::Rat, y::Uniterm) = Uniterm(x * coeff(y), monomial(y))
-Base.:*(x::Uniterm, y::Rat) = y * x
+Base.:*(x::CoeffType, y::Uniterm) = Uniterm(x * coeff(y), monomial(y))
+Base.:*(x::Uniterm, y::CoeffType) = y * x
 
 Base.:*(x::SparsePoly, y::SparsePoly) = sum(t->x * t, terms(y))
 smul(x, y::SparsePoly) = SparsePoly(x * coeffs(y), y.exps, var(y))
-Base.:*(x::Rat, y::SparsePoly) = smul(x, y)
-Base.:*(x::SparsePoly, y::Rat) = y * x
-Base.:*(x::T, y::SparsePoly{T}) where {T<:AbstractPoly} = smul(x, y)
-Base.:*(x::SparsePoly{T}, y::T) where {T<:AbstractPoly} = y * x
+Base.:*(x::CoeffType, y::SparsePoly) = smul(x, y)
+Base.:*(x::SparsePoly, y::CoeffType) = y * x
+Base.:*(x::T, y::SparsePoly{T}) where {T<:AbstractPolynomial} = smul(x, y)
+Base.:*(x::SparsePoly{T}, y::T) where {T<:AbstractPolynomial} = y * x
 
 addcoef(x::Uniterm, c) = (c += coeff(x); return iszero(c), Uniterm(c, monomial(x)))
 addcoef(x::Uniterm, c::Uniterm) = addcoef(x, coeff(c))
@@ -192,7 +195,7 @@ Base.div(x::Uninomial, y::Uninomial) = (x/y)[1]
 function Base.:(/)(x::Uninomial, y::Uninomial)
     check_poly(x, y)
     xd, yd = degree(x), degree(y)
-    xd >= yd ? (Uninomial(xd - yd, var(x)), false) : (x, true)
+    xd >= yd ? (Uninomial(var(x), xd - yd), false) : (x, true)
 end
 
 # dest = (p * a).^n
@@ -205,50 +208,27 @@ function mulpow!(dest, p::SparsePoly, a, n::Integer)
     return dest
 end
 
-function fnmadd!(p::SparsePoly, l, s)
-    for li in terms(l)
-        sub!(p, li * s)
-    end
-end
+#function fnmadd!(p::SparsePoly, l, s)
+#    for li in terms(l)
+#        sub!(p, li * s)
+#    end
+#end
 function mul!(p::SparsePoly, l)
     cs = coeffs(p)
     for i in eachindex(cs)
         cs[i] *= l
     end
 end
-#=function _copyto!(x::Vector, y::Vector)
-    resize!(x, length(y))
-    copyto!(x, y)
-    nothing
-end
-function Base.copyto!(x::Vector{MPoly}, y::Vector{MPoly})
-    tsx = terms(x)
-    tsy = terms(y)
-    resize!(tsx, length(tsy))
-    for i in eachindex(tsy)
-        tsx[i] = copy(tsy[i])
-    end
-    x
-end
-function Base.copyto!(x::MPoly, y::MPoly)
-    _copyto!(terms(x), terms(y))
-end
-function Base.copyto!(x::SparsePoly, y::SparsePoly)
-    _copyto!(coeffs(x), coeffs(y))
-    _copyto!(x.exps, y.exps)
-end =#
+
 function pseudorem(p::SparsePoly, d::SparsePoly)
     check_poly(p, d)
     degree(p) < degree(d) && return p
     k = degree(p) - degree(d) + 1
     l = lc(d)
     dd = similar(d)
-    # pp = similar(p)
+    p = copy(p)
     while !iszero(p) && degree(p) >= degree(d)
         s = mulpow!(dd, d, lc(p), degree(p) - degree(d))
-        # copyto!(pp, p);
-        # p, pp = pp, p
-        p = copy(p)
         mul!(p, l)
         sub!(p, s)
         k -= 1
@@ -256,32 +236,76 @@ function pseudorem(p::SparsePoly, d::SparsePoly)
     return l^k * p
 end
 
-function content(a::SparsePoly)
-    cfs = coeffs(a)
-    length(cfs) == 1 && return first(cfs)
-    g = gcd(cfs[1], cfs[2])
-    # TODO: short circuit and split to small terms
-    for i in 3:length(cfs)
-        g = gcd(g, cfs[i])
+function termwise_content(a::MPoly)
+    ts = terms(a)
+    length(ts) == 1 && return ts[1]
+    g = gcd(ts[1], ts[2])
+    isone(g) || for i in 3:length(ts)
+        g = gcd(g, ts[i])
+        isone(g) && break
     end
     g
 end
 
-function univariate_gcd(x::AbstractPoly, y::AbstractPoly)
-    while !iszero(y)
-        x = pseudorem(x, y)
-        x, y = y, x
+function content(a::SparsePoly)
+    cfs = coeffs(a)
+    length(cfs) == 1 && return first(cfs)
+    # If any coeff here is a multivariate polynomial with only one term, then we
+    # just need to compute the termwize content.
+    MP = eltype(cfs)
+    if MP <: AbstractPolynomial
+        for i in eachindex(cfs)
+            ts = terms(cfs[i])
+            if length(ts) == 1
+                g = gcd(termwise_content(cfs[1]), termwise_content(cfs[2]))
+                isone(g) || for i in 3:length(cfs)
+                    g = gcd(g, termwise_content(cfs[i]))
+                    isone(g) && break
+                end
+                return MP(g)
+            end
+        end
     end
-    return x#, a / x, b / x
+
+    g = gcd(cfs[1], cfs[2])
+    isone(g) || for i in 3:length(cfs)
+        g = gcd(g, cfs[i])
+        isone(g) && break
+    end
+    g
 end
 
-function divexact(a::SparsePoly{T}, b::T) where {T<:AbstractPoly}
-    cfs = MPoly[divexact(c, b) for c in coeffs(a)]
+#function univariate_gcd(x::AbstractPolynomial, y::AbstractPolynomial)
+#    while !iszero(y)
+#        x = pseudorem(x, y)
+#        x, y = y, x
+#    end
+#    return x#, a / x, b / x
+#end
+
+function Base.divrem(p::SparsePoly{T}, d::SparsePoly{T}) where T<:CoeffType
+    p = copy(p)
+    q = zero(p)
+    r = zero(p)
+    while !iszero(p)
+        nx, fail = lt(p) / lt(d)
+        if fail
+            break
+        else
+            p -= d * nx
+            q += nx
+        end
+    end
+    return q, r
+end
+
+function divexact(a::SparsePoly{T}, b::T) where {T<:AbstractPolynomial}
+    cfs = [divexact(c, b) for c in coeffs(a)]
     SparsePoly(cfs, a.exps, var(a))
 end
 
 divexact(c, b) = ((d, r) = divrem(c, b); @assert iszero(r); d;)
-function divexact(a::SparsePoly, b)
+function divexact(a::SparsePoly{T}, b::T) where T
     cfs = [divexact(c, b) for c in coeffs(a)]
     SparsePoly(cfs, a.exps, var(a))
 end
@@ -346,14 +370,14 @@ function emplace_back!(poly, ts, perm, chunk_start_idx, idx, olddegree)
     push!(poly.coeffs, coeff)
     nothing
 end
-term2polycoeff(t::Term, v::IDType) = Term(t.coeff, Monomial(filter(!isequal(v), monomial(t).ids)))
+term2polycoeff(t::Term, v::IDType) = Term(coeff(t), rmid(monomial(t), v))
 function SparsePoly(p::MPoly, v::IDType)
     ts = terms(p)
     pows = map(ts) do t
-        count(isequal(v), monomial(t).ids)
+        degree(monomial(t), v)
     end
     perm = sortperm(pows, rev=true)
-    coeffs = MPoly[]
+    coeffs = typeof(p)[]
     exps = UInt[]
     poly = SparsePoly(coeffs, exps, v)
 
@@ -374,7 +398,8 @@ function SparsePoly(p::MPoly, v::IDType)
     return poly
 end
 
-function univariate_to_multivariate(g::SparsePoly{<:AbstractPoly})
+univariate_to_multivariate(g::SparsePoly{<:AbstractPolynomial}) = univariate_to_multivariate(g, monomialtype(lc(g)))
+function univariate_to_multivariate(g, ::Type{<:Monomial})
     cfs = coeffs(g)
     eps = g.exps
     v = var(g)
@@ -387,6 +412,20 @@ function univariate_to_multivariate(g::SparsePoly{<:AbstractPoly})
         c = cfs[i]
         e = eps[i]
         add!(s, c * Monomial(fill(v, e)))
+    end
+    return s
+end
+
+function univariate_to_multivariate(g, P::Type{<:PackedMonomial})
+    cfs = coeffs(g)
+    eps = g.exps
+    v = var(g)
+    @assert !isempty(eps)
+    s = cfs[1] * P(v)^eps[1]
+    for i in 2:length(cfs)
+        c = cfs[i]
+        e = eps[i]
+        add!(s, c * P(v)^e)
     end
     return s
 end

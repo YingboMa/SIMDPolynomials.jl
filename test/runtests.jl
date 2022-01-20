@@ -1,8 +1,40 @@
 using LoopPoly
+using LoopPoly: divexact
 using LoopPoly: lc
 using Test
 
 LoopPoly.debugmode() = true
+
+@testset "Fuzz SparsePoly" begin
+    x = Uninomial(0, 1)
+    for i in 1:1000
+        p = sum(rand(-2:2)*x^i for i in 0:10)
+        q = sum(rand(-2:2)*x^i for i in 0:5)
+        g = gcd(p, q)
+        if !isone(g)
+            @show g
+        end
+        pdg = divexact(p, g)
+        qdg = divexact(q, g)
+        @test gcd(pdg, qdg) == one(x)
+    end
+end
+
+@testset "Fuzz MPoly" begin
+    x, y, z = [Monomial([i]) for i in 0:2]
+    for _ in 1:1000
+        pterms = [rand(-2:2)*prod(rand([x, y, z])^i for i in 0:3) for j in 0:7]
+        p = sum(pterms)
+        q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
+        g = gcd(p, q)
+        if !isone(g)
+            @show g
+        end
+        pdg = divexact(p, g)
+        qdg = divexact(q, g)
+        @test gcd(pdg, qdg) == one(x)
+    end
+end
 
 @testset "pseudorem" begin
     x = Uninomial(0, 1)
@@ -19,7 +51,7 @@ end
 function test_gcd(x, y)
     g1 = gcd(x, y)
     g2 = gcd(y, x)
-    @test sign(lc(g1)) * g1 == sign(lc(g1)) * g2
+    @test sign(lc(g1)) * g1 == sign(lc(g2)) * g2
     return g1
 end
 
@@ -73,4 +105,34 @@ end
     g = gcd(m, m)
     @test g == m
     @test LoopPoly.degree(g) == 60 + 18 + 12 + 24
+
+    c1 = 10*(x * z + x)
+    c2 = 2*(x^2 + z)
+    c3 = 2*(2 - z  )
+    c4 = 20*(x * z^2)
+    e1 = 0
+    e2 = 5
+    e3 = 7
+    e4 = 10
+    p = c1 * y^e1 + c2 * y^e2 + c3 * y^e3 + c4 * y^e4
+    q = prod(i->p + i, 0:3)
+    @test length(terms(q)) == 262
+    for i in 0:3
+        @test test_gcd(p + i, q) == p + i
+    end
+
+    k = y^2 + 1
+    @test test_gcd(x*k, z*k) == k
+    @test test_gcd(x*k, (z+1)*k) == k
+    @test test_gcd(x*k, p*k) == k
+
+    p = 2*x*y
+    q = 2*x*y + x
+    @test test_gcd(q, p) == x
+
+    p = x*y + y
+    q = -x*y - y
+    @test test_gcd(q, p) == p
+
+    @test test_gcd((-x + 1) * (y^2+1), -x+1) == -x + 1
 end
