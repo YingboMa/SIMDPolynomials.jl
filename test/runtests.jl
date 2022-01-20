@@ -1,8 +1,40 @@
 using LoopPoly
+using LoopPoly: divexact
 using LoopPoly: lc
 using Test
 
 LoopPoly.debugmode() = true
+
+@testset "Fuzz SparsePoly" begin
+    x = Uninomial(0, 1)
+    for i in 1:1000
+        p = sum(rand(-2:2)*x^i for i in 0:10)
+        q = sum(rand(-2:2)*x^i for i in 0:5)
+        g = gcd(p, q)
+        if !isone(g)
+            @show g
+        end
+        pdg = divexact(p, g)
+        qdg = divexact(q, g)
+        @test gcd(pdg, qdg) == one(x)
+    end
+end
+
+@testset "Fuzz MPoly" begin
+    x, y, z = [Monomial([i]) for i in 0:2]
+    for _ in 1:1000
+        pterms = [rand(-2:2)*prod(rand([x, y, z])^i for i in 0:3) for j in 0:7]
+        p = sum(pterms)
+        q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
+        g = gcd(p, q)
+        if !isone(g)
+            @show g
+        end
+        pdg = divexact(p, g)
+        qdg = divexact(q, g)
+        @test gcd(pdg, qdg) == one(x)
+    end
+end
 
 @testset "pseudorem" begin
     x = Uninomial(0, 1)
