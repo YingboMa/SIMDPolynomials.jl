@@ -37,10 +37,10 @@ end
 Base.convert(::Type{<:SparsePoly}, m::Uninomial) = SparsePoly(Uniterm(m))
 Base.convert(::Type{<:SparsePoly}, t::Uniterm) = SparsePoly(t)
 #Base.convert(::Type{<:SparsePoly}, t::CoeffType) = SparsePoly(convert(Uniterm, t))
-SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], [degree(t)], var(t))
+SparsePoly(t::Uniterm) = SparsePoly([coeff(t)], UInt[degree(t)], var(t))
 SparsePoly(c::Number, v) = SparsePoly([c], [zero(UInt)], v)
 const EMPTY_EXPS = UInt[]
-SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, id)
+#SparsePoly(t::Uniterm, id::IDType) = SparsePoly(typeof(coeff(t))[], EMPTY_EXPS, id)
 Base.similar(p::SparsePoly) = SparsePoly(similar(coeffs(p)), similar(p.exps), var(p))
 
 var(p::SparsePoly) = p.v
@@ -108,12 +108,25 @@ function Base.:(+)(x::Uniterm, y::Uniterm)
     check_poly(x, y)
     if ismatch(x, y)
         c = x.coeff + y.coeff
-        return iszero(c) ? SparsePoly(x, var(x)) : SparsePoly(Uniterm(c, monomial(x)))
+        return iszero(c) ? SparsePoly(typeof(x)[], EMPTY_EXPS, var(x)) : SparsePoly(Uniterm(c, monomial(x)))
     else
-        if x < y
-            x, y = y, x
+        if iszero(x) && iszero(y)
+            c = coeff(y)
+            return SparsePoly(typeof(c)[], EMPTY_EXPS, var(x))
+        elseif iszero(x)
+            exp = degree(y)
+            c = coeff(y)
+            return SparsePoly([c], UInt[exp], var(x))
+        elseif iszero(y)
+            exp = degree(x)
+            c = coeff(x)
+            return SparsePoly([c], UInt[exp], var(x))
+        else
+            if x < y
+                x, y = y, x
+            end
+            return SparsePoly([coeff(x), coeff(y)], UInt[degree(x), degree(y)], var(x))
         end
-        return SparsePoly([coeff(x), coeff(y)], [degree(x), degree(y)], var(x))
     end
 end
 Base.:(*)(x::CoeffType, y::Uninomial) = Uniterm(x, y)

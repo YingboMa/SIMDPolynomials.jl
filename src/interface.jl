@@ -27,7 +27,7 @@ abstract type AbstractTerm <: Number end
 Base.promote_rule(::Type{C}, ::Type{M}) where {C<:CoeffType,M<:AbstractMonomial} = Term{C,M}
 Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:AbstractMonomial}) = t
 Base.promote_rule(t::Type{<:AbstractTerm}, ::Type{<:CoeffType}) = t
-@generated emptyterm(T::Type{<:AbstractTerm}) = T[]
+emptyterm(T::Type{<:AbstractTerm}) = T[]
 
 degree(x::AbstractTerm) = degree(monomial(x))
 ismatch(x::T, y::T) where {T<:AbstractTerm} = monomial(x) == monomial(y)
@@ -58,10 +58,18 @@ function Base.:+(x::T, y::T) where {T<:AbstractTerm}
         c = coeff(x) + coeff(y)
         return iszero(c) ? MPoly(emptyterm(T)) : MPoly(T(c, monomial(x)))
     else
-        if x < y
-            x, y = y, x
+        if iszero(x) && iszero(y)
+            return MPoly(emptyterm(T))
+        elseif iszero(x)
+            return MPoly(T[y])
+        elseif iszero(y)
+            return MPoly(T[x])
+        else
+            if x < y
+                x, y = y, x
+            end
+            return MPoly(T[x, y])
         end
-        return MPoly(T[x, y])
     end
 end
 
