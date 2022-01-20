@@ -17,6 +17,9 @@ LoopPoly.debugmode() = true
         pdg = divexact(p, g)
         qdg = divexact(q, g)
         @test gcd(pdg, qdg) == one(x)
+        pq = p * q
+        @test divexact(pq, p) == q
+        @test divexact(pq, q) == p
     end
 end
 

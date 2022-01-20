@@ -208,11 +208,6 @@ function mulpow!(dest, p::SparsePoly, a, n::Integer)
     return dest
 end
 
-#function fnmadd!(p::SparsePoly, l, s)
-#    for li in terms(l)
-#        sub!(p, li * s)
-#    end
-#end
 function mul!(p::SparsePoly, l)
     cs = coeffs(p)
     for i in eachindex(cs)
