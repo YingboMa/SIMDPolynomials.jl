@@ -1,3 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-LoopPoly = "4edc584b-a88b-4acf-80bb-891198a11e01"
+SIMDPolynomials = "4edc584b-a88b-4acf-80bb-891198a11e01"

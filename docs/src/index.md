@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = LoopPoly
+CurrentModule = SIMDPolynomials
 ```
 
-# LoopPoly
+# SIMDPolynomials
 
-Documentation for [LoopPoly](https://github.com/YingboMa/LoopPoly.jl).
+Documentation for [SIMDPolynomials](https://github.com/YingboMa/SIMDPolynomials.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [LoopPoly]
+Modules = [SIMDPolynomials]
 ```

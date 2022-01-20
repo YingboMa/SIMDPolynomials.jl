@@ -1,16 +1,16 @@
-using LoopPoly
+using SIMDPolynomials
 using Documenter
 
-DocMeta.setdocmeta!(LoopPoly, :DocTestSetup, :(using LoopPoly); recursive=true)
+DocMeta.setdocmeta!(SIMDPolynomials, :DocTestSetup, :(using SIMDPolynomials); recursive=true)
 
 makedocs(;
-    modules=[LoopPoly],
+    modules=[SIMDPolynomials],
     authors="Yingbo Ma <mayingbo5@gmail.com> and contributors",
-    repo="https://github.com/YingboMa/LoopPoly.jl/blob/{commit}{path}#{line}",
-    sitename="LoopPoly.jl",
+    repo="https://github.com/YingboMa/SIMDPolynomials.jl/blob/{commit}{path}#{line}",
+    sitename="SIMDPolynomials.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://YingboMa.github.io/LoopPoly.jl",
+        canonical="https://YingboMa.github.io/SIMDPolynomials.jl",
         assets=String[],
     ),
     pages=[
@@ -19,6 +19,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/YingboMa/LoopPoly.jl",
+    repo="github.com/YingboMa/SIMDPolynomials.jl",
     devbranch="master",
 )

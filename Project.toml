@@ -1,4 +1,4 @@
-name = "LoopPoly"
+name = "SIMDPolynomials"
 uuid = "4edc584b-a88b-4acf-80bb-891198a11e01"
 authors = ["Yingbo Ma <mayingbo5@gmail.com> and Chris Elrod <elrodc@gmail.com>"]
 version = "0.1.0"

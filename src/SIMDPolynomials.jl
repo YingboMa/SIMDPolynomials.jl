@@ -1,4 +1,4 @@
-module LoopPoly
+module SIMDPolynomials
 
 export Uninomial, Uniterm, Poly
 export PackedMonomial, Monomial, Term, MPoly

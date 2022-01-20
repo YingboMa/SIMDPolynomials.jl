@@ -50,7 +50,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
-[[deps.LoopPoly]]
+[[deps.SIMDPolynomials]]
 path = ".."
 uuid = "4edc584b-a88b-4acf-80bb-891198a11e01"
 version = "0.1.0"
