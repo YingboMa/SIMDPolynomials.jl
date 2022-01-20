@@ -38,7 +38,7 @@ struct PackedMonomial{L,E,K} <: AbstractMonomial
         PackedMonomial{L,EN,K}()
     end
     function PackedMonomial{L,E,K}() where {L,E,K}
-        PackedMonomial{L,E,K}(ntuple(Returns(zero(UInt64)), Val(K)))
+        PackedMonomial{L,E,K}(ntuple(Ret(zero(UInt64)), Val(K)))
     end
     PackedMonomial{L,E}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
     PackedMonomial{L,E,K}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)

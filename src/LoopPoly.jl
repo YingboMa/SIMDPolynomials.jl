@@ -7,6 +7,14 @@ export mpoly2poly
 export univariate_gcd, pseudorem
 export PackedMonomial
 
+struct Ret{V} <: Function
+    value::V
+    Ret{V}(value) where {V} = new{V}(value)
+    Ret(value) = new{Core.Typeof(value)}(value)
+end
+
+(obj::Ret)(args...; kw...) = obj.value
+
 debugmode() = false
 
 include("interface.jl")
