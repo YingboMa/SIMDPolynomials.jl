@@ -25,14 +25,16 @@ function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}
 end
 function Base.:*(p::MPoly, x::MPoly)
     ts = terms(x)
-    out = similar(terms(p), length(ts) * length(terms(p)))
-    resize!(out, 0)
+    out = similar(terms(p), 0)
+    sizehint!(out, length(ts) * length(terms(p)))
     s = MPoly(out)
     for tp in terms(p)
+        start = 1
         for tx in terms(x)
-            add!(s, tp * tx)
+            _, start = _add!(s, tp * tx, start)
         end
     end
+    (debugmode() && !issorted(terms(s), rev=true)) && throw("Polynomial not sorted!")
 
     return s
 end
@@ -48,29 +50,56 @@ subcoef(x::T, c) where {T<:AbstractTerm} = (c = coeff(x) - c; return iszero(c), 
 subcoef(x::T, c::T) where {T<:AbstractTerm} = subcoef(x, c.coeff)
 
 function add!(p::MPoly, x::AbstractTerm)
-    q = _add!(p, x);
+    q, i = _add!(p, x, 1);
     (debugmode() && !issorted(terms(q), rev=true)) && throw("Polynomial not sorted!")
     q
 end
-function _add!(p::MPoly, x::AbstractTerm)
-    iszero(x) && return p
+
+@inline function _add!(p::MPoly, x::AbstractTerm, start)
+    iszero(x) && return p, 1
     ts = terms(p)
-    for (i, t) in enumerate(ts)
-        if ismatch(t, x)
-            iz, t = addcoef(t, x)
-            if iz
-                deleteat!(ts, i)
-            else
-                ts[i] = t
-            end
-            return p
-        elseif t < x
+    i = start
+    N = length(ts)
+    for i in start:length(ts)
+        t = ts[i]
+        if t < x
             insert!(ts, i, x)
-            return p
+            return p, i
+        elseif ismatch(t, x)
+            return p, _add_term_matched(ts, i, t, x)
         end
     end
     push!(ts, x)
-    return p
+    return p, i
+end
+
+@inline function _add_rev!(p::MPoly, x::AbstractTerm, _end=1)
+    iszero(x) && return p, 1
+    ts = terms(p)
+    i = _end
+    N = length(ts)
+    for i in length(ts):-1:_end
+        t = ts[i]
+        if t > x
+            insert!(ts, i+1, x)
+            return p, i
+        elseif ismatch(t, x)
+            return p, _add_term_matched(ts, i, t, x)
+        end
+    end
+    push!(ts, x)
+    return p, i
+end
+
+function _add_term_matched(ts, i, t, x)
+    iz, t = addcoef(t, x)
+    if iz
+        deleteat!(ts, i)
+        return max(1, i-1)
+    else
+        ts[i] = t
+        return i
+    end
 end
 
 function add!(p::AbstractPolynomial, x::AbstractPolynomial)
@@ -101,6 +130,12 @@ function takelt!(p::MPoly, x::MPoly)
     return p
 end
 
+function fnmadd!(p::MPoly, l, s)
+    for li in terms(l)
+        sub!(p, li * s)
+    end
+end
+
 function Base.divrem(p::MPoly, d::MPoly)
     p = copy(p)
     q = MPoly(similar(terms(p), 0))
@@ -112,7 +147,7 @@ function Base.divrem(p::MPoly, d::MPoly)
         else
             #p -= d * nx
             #q += nx
-            sub!(p, d * nx)
+            fnmadd!(p, d, nx)
             add!(q, nx)
         end
     end
@@ -121,13 +156,17 @@ end
 
 function divexact(p::MPoly, d::MPoly)
     p = copy(p)
-    q = MPoly(similar(terms(p), 0))
+    ts = similar(terms(p), 0)
+    sizehint!(ts, length(terms(d))-1)
+    q = MPoly(ts)
+    _end = 1
     while !isempty(terms(p))
         nx, fail = lt(p) / lt(d)
         @assert !fail
-        sub!(p, d * nx)
-        add!(q, nx)
+        fnmadd!(p, d, nx)
+        _, _end = _add_rev!(q, nx, _end)
     end
+    (debugmode() && !issorted(terms(q), rev=true)) && throw("Polynomial not sorted!")
     return q
 end
 
@@ -139,7 +178,7 @@ function Base.rem(p::AbstractPolynomial, d::AbstractPolynomial)
         if fail
             takelt!(r, p)
         else
-            p -= d * nx
+            sub!(p, d * nx)
         end
     end
     return r
