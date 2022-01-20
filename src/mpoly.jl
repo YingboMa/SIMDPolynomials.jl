@@ -23,29 +23,17 @@ function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}
         MPoly(T[t * x for t in terms(p) if !iszero(t)])
     end
 end
-function mul!(buffer, p::MPoly, x::T) where {T<:AbstractTerm}
-    if iszero(x)
-        return MPoly(emptyterm(T))
-    elseif isone(x)
-        return p
-    else
-        ts = terms(buffer)
-        i = 0
-        for t in terms(p)
-            iszero(t) && continue
-            ts[i+=1] = t * x
-        end
-        resize!(ts, i)
-        return buffer
-    end
-end
 function Base.:*(p::MPoly, x::MPoly)
     ts = terms(x)
-    s = p * ts[1]
-    buffer = copy(p)
-    for i in 2:length(ts)
-        add!(s, mul!(buffer, p, ts[i]))
+    out = similar(terms(p), length(ts) * length(terms(p)))
+    resize!(out, 0)
+    s = MPoly(out)
+    for tp in terms(p)
+        for tx in terms(x)
+            add!(s, tp * tx)
+        end
     end
+
     return s
 end
 Base.:+(p::MPoly, x::AbstractTerm) = add!(copy(p), x)
