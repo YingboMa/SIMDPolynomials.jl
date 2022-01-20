@@ -4,7 +4,7 @@ struct Uninomial <: AbstractMonomial
 end
 
 Base.isless(x::Uninomial, y::Uninomial) = isless(degree(x), degree(y))
-degree(m::Uninomial) = m.d
+degree(m::Uninomial) = Int(m.d)
 var(m::Uninomial) = m.v
 
 coeff(m::Uninomial) = 1
@@ -50,7 +50,7 @@ term(p::SparsePoly, i) = Uniterm(p.coeffs[i], Uninomial(var(p), p.exps[i]))
 terms(p::SparsePoly) = (term(p, i) for i in eachindex(coeffs(p)))
 lt(p::SparsePoly) = term(p, 1)
 lc(p::SparsePoly) = coeff(p, 1)
-degree(p::SparsePoly) = iszero(p) ? -1 : p.exps[1]
+degree(p::SparsePoly) = iszero(p) ? -1 : Int(p.exps[1])
 Base.iszero(p::SparsePoly) = isempty(p.exps) || iszero(lt(p))
 
 Base.zero(t::SparsePoly) = zero(lt(t))
@@ -195,7 +195,7 @@ Base.div(x::Uninomial, y::Uninomial) = (x/y)[1]
 function Base.:(/)(x::Uninomial, y::Uninomial)
     check_poly(x, y)
     xd, yd = degree(x), degree(y)
-    xd >= yd ? (Uninomial(xd - yd, var(x)), false) : (x, true)
+    xd >= yd ? (Uninomial(var(x), xd - yd), false) : (x, true)
 end
 
 # dest = (p * a).^n
@@ -275,12 +275,28 @@ function content(a::SparsePoly)
     g
 end
 
-function univariate_gcd(x::AbstractPolynomial, y::AbstractPolynomial)
-    while !iszero(y)
-        x = pseudorem(x, y)
-        x, y = y, x
+#function univariate_gcd(x::AbstractPolynomial, y::AbstractPolynomial)
+#    while !iszero(y)
+#        x = pseudorem(x, y)
+#        x, y = y, x
+#    end
+#    return x#, a / x, b / x
+#end
+
+function Base.divrem(p::SparsePoly{T}, d::SparsePoly{T}) where T<:CoeffType
+    p = copy(p)
+    q = zero(p)
+    r = zero(p)
+    while !iszero(p)
+        nx, fail = lt(p) / lt(d)
+        if fail
+            break
+        else
+            p -= d * nx
+            q += nx
+        end
     end
-    return x#, a / x, b / x
+    return q, r
 end
 
 function divexact(a::SparsePoly{T}, b::T) where {T<:AbstractPolynomial}
@@ -289,7 +305,7 @@ function divexact(a::SparsePoly{T}, b::T) where {T<:AbstractPolynomial}
 end
 
 divexact(c, b) = ((d, r) = divrem(c, b); @assert iszero(r); d;)
-function divexact(a::SparsePoly, b)
+function divexact(a::SparsePoly{T}, b::T) where T
     cfs = [divexact(c, b) for c in coeffs(a)]
     SparsePoly(cfs, a.exps, var(a))
 end
