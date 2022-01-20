@@ -73,6 +73,24 @@ end
     return p, i
 end
 
+@inline function _add_rev!(p::MPoly, x::AbstractTerm, _end=1)
+    iszero(x) && return p, 1
+    ts = terms(p)
+    i = _end
+    N = length(ts)
+    for i in length(ts):-1:_end
+        t = ts[i]
+        if t > x
+            insert!(ts, i+1, x)
+            return p, i
+        elseif ismatch(t, x)
+            return p, _add_term_matched(ts, i, t, x)
+        end
+    end
+    push!(ts, x)
+    return p, i
+end
+
 function _add_term_matched(ts, i, t, x)
     iz, t = addcoef(t, x)
     if iz
@@ -138,13 +156,17 @@ end
 
 function divexact(p::MPoly, d::MPoly)
     p = copy(p)
-    q = MPoly(similar(terms(p), 0))
+    ts = similar(terms(p), 0)
+    sizehint!(ts, length(terms(d))-1)
+    q = MPoly(ts)
+    _end = 1
     while !isempty(terms(p))
         nx, fail = lt(p) / lt(d)
         @assert !fail
         fnmadd!(p, d, nx)
-        add!(q, nx)
+        _, _end = _add_rev!(q, nx, _end)
     end
+    (debugmode() && !issorted(terms(q), rev=true)) && throw("Polynomial not sorted!")
     return q
 end
 

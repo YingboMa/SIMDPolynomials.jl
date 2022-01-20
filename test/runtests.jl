@@ -1,6 +1,5 @@
 using LoopPoly
-using LoopPoly: divexact
-using LoopPoly: lc
+using LoopPoly: divexact, lc, var
 using Test
 
 LoopPoly.debugmode() = true
@@ -11,9 +10,6 @@ LoopPoly.debugmode() = true
         p = sum(rand(-2:2)*x^i for i in 0:10)
         q = sum(rand(-2:2)*x^i for i in 0:5)
         g = gcd(p, q)
-        if !isone(g)
-            @show g
-        end
         pdg = divexact(p, g)
         qdg = divexact(q, g)
         @test gcd(pdg, qdg) == one(x)
@@ -30,9 +26,6 @@ end
         p = sum(pterms)
         q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
         g = gcd(p, q)
-        if !isone(g)
-            @show g
-        end
         pdg = divexact(p, g)
         qdg = divexact(q, g)
         @test gcd(pdg, qdg) == one(x)
@@ -138,4 +131,16 @@ end
     @test test_gcd(q, p) == p
 
     @test test_gcd((-x + 1) * (y^2+1), -x+1) == -x + 1
+
+    p1 = 1 + x + y + z + t
+    n = 15
+    p = p1^n;
+    @test test_gcd(p, p1) == p1
+    k = p;
+    for i in 1:n
+        k = divexact(k, p1)
+    end
+    @test k == 1
+    q = (p + 1) * p;
+    @test gcd(q, p) == p
 end
