@@ -30,6 +30,12 @@ function calc_K(::Val{L},::Val{E}) where {L,E}
     end
 end
 new_E(::Val{E}) where {E} = max(Base._nextpow2(1+E)-1, 7)
+
+"""
+    PackedMonomial{L,E}
+
+Bit packed monomial with maximum of L variables and E bits of exponents.
+"""
 struct PackedMonomial{L,E,K} <: AbstractMonomial
     bits::NTuple{K,UInt64}
     function PackedMonomial{L,E}() where {L,E}

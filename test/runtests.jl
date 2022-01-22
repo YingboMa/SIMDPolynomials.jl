@@ -125,7 +125,7 @@ end
     e3 = 7
     e4 = 10
     p = c1 * y^e1 + c2 * y^e2 + c3 * y^e3 + c4 * y^e4
-    q = prod(i->p + i, 0:3)
+    q = prod(i->p + i, 0:3);
     @test length(terms(q)) == 262
     for i in 0:3
         @test test_gcd(p + i, q) == p + i
