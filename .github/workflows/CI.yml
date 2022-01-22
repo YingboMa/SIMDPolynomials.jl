@@ -63,6 +63,6 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using LoopPoly
-            DocMeta.setdocmeta!(LoopPoly, :DocTestSetup, :(using LoopPoly); recursive=true)
-            doctest(LoopPoly)'
+            using SIMDPolynomials
+            DocMeta.setdocmeta!(SIMDPolynomials, :DocTestSetup, :(using SIMDPolynomials); recursive=true)
+            doctest(SIMDPolynomials)'
