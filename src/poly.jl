@@ -159,7 +159,15 @@ end
 Base.:*(x::CoeffType, y::Uniterm) = Uniterm(x * coeff(y), monomial(y))
 Base.:*(x::Uniterm, y::CoeffType) = y * x
 
-Base.:*(x::SparsePoly, y::SparsePoly) = sum(t->x * t, terms(y))
+function Base.:*(x::SparsePoly, y::SparsePoly)
+    if iszero(x)
+        return x
+    elseif iszero(y)
+        return y
+    else
+        return sum(t->x * t, terms(y))
+    end
+end
 smul(x, y::SparsePoly) = SparsePoly(x * coeffs(y), y.exps, var(y))
 Base.:*(x::CoeffType, y::SparsePoly) = smul(x, y)
 Base.:*(x::SparsePoly, y::CoeffType) = y * x

@@ -15,7 +15,9 @@ Base.one(::Type{<:MPoly{T}}) where T = MPoly(eltype(T)(1))
 
 Base.:*(x::AbstractTerm, p::MPoly) = p * x
 function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}
-    if iszero(x)
+    if iszero(p)
+        return p
+    elseif iszero(x)
         return MPoly(emptyterm(T))
     elseif isone(x)
         return p
@@ -25,15 +27,16 @@ function Base.:*(p::MPoly, x::T) where {T<:AbstractTerm}
 end
 function Base.:*(p::MPoly, x::MPoly)
     ts = terms(x)
-    out = similar(terms(p), 0)
-    sizehint!(out, length(ts) * length(terms(p)))
+    out = similar(terms(p), length(ts) * length(terms(p)))
+    current_len = 0
     s = MPoly(out)
     for tp in terms(p)
         start = 1
         for tx in terms(x)
-            _, start = _add!(s, tp * tx, start)
+            _, (current_len, start) = _add!(s, tp * tx, current_len, start)
         end
     end
+    resize!(out, current_len)
     (debugmode() && !issorted(terms(s), rev=true)) && throw("Polynomial not sorted!")
 
     return s
@@ -50,48 +53,77 @@ subcoef(x::T, c) where {T<:AbstractTerm} = (c = coeff(x) - c; return iszero(c), 
 subcoef(x::T, c::T) where {T<:AbstractTerm} = subcoef(x, c.coeff)
 
 function add!(p::MPoly, x::AbstractTerm)
-    q, i = _add!(p, x, 1);
+    q, (current_len, _) = _add!(p, x, length(terms(p)), 1);
+    resize!(terms(q), current_len)
     (debugmode() && !issorted(terms(q), rev=true)) && throw("Polynomial not sorted!")
     q
 end
 
-@inline function _add!(p::MPoly, x::AbstractTerm, start)
-    iszero(x) && return p, 1
+@inline function _add!(p::MPoly, x::AbstractTerm, current_len, start)
+    iszero(x) && return p, (current_len, 1)
     ts = terms(p)
     i = start
-    N = length(ts)
-    for i in start:length(ts)
+    for i in start:current_len
         t = ts[i]
         if t < x
-            insert!(ts, i, x)
-            return p, i
+            current_len += 1
+            if current_len > length(ts)
+                insert!(ts, i, x)
+            else
+                @inbounds @simd for j in current_len:-1:i+1
+                    ts[j] = ts[j-1]
+                end
+                ts[i] = x
+            end
+            return p, (current_len, i)
         elseif ismatch(t, x)
-            return p, _add_term_matched(ts, i, t, x)
+            return p, _add_term_matched(ts, i, t, x, current_len)
         end
     end
-    push!(ts, x)
-    return p, i
+    current_len += 1
+    if current_len > length(ts)
+        push!(ts, x)
+    else
+        ts[current_len] = x
+    end
+    return p, (current_len, i)
+end
+
+@inline function _add_term_matched(ts, i, t, x, current_len)
+    iz, t = addcoef(t, x)
+    if iz
+        # deleteat is somehow faster
+        deleteat!(ts, i)
+        return current_len-1, max(1, i-1)
+        #current_len -= 1
+        #@inbounds @simd for j in i:current_len
+        #    ts[j] = ts[j+1]
+        #end
+        #return current_len, max(1, i-1)
+    else
+        ts[i] = t
+        return current_len, i
+    end
 end
 
 @inline function _add_rev!(p::MPoly, x::AbstractTerm, _end=1)
     iszero(x) && return p, 1
     ts = terms(p)
     i = _end
-    N = length(ts)
     for i in length(ts):-1:_end
         t = ts[i]
         if t > x
             insert!(ts, i+1, x)
             return p, i
         elseif ismatch(t, x)
-            return p, _add_term_matched(ts, i, t, x)
+            return p, _add_term_matched_rev(ts, i, t, x)
         end
     end
     push!(ts, x)
     return p, i
 end
 
-function _add_term_matched(ts, i, t, x)
+function _add_term_matched_rev(ts, i, t, x)
     iz, t = addcoef(t, x)
     if iz
         deleteat!(ts, i)
@@ -103,13 +135,23 @@ function _add_term_matched(ts, i, t, x)
 end
 
 function add!(p::AbstractPolynomial, x::AbstractPolynomial)
-    for t in terms(x)
+    tp = terms(p)
+    tx = terms(x)
+    if tp isa Vector
+        sizehint!(tp, length(tp) + length(tx))
+    end
+    for t in tx
         add!(p, t)
     end
     return p
 end
 function sub!(p::AbstractPolynomial, x::AbstractPolynomial)
-    for t in terms(x)
+    tp = terms(p)
+    tx = terms(x)
+    if tp isa Vector
+        sizehint!(tp, length(tp) + length(tx))
+    end
+    for t in tx
         sub!(p, t)
     end
     return p
