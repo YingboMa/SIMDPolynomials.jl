@@ -53,7 +53,8 @@ lc(p::SparsePoly) = coeff(p, 1)
 degree(p::SparsePoly) = iszero(p) ? -1 : Int(p.exps[1])
 Base.iszero(p::SparsePoly) = isempty(p.exps) || iszero(lt(p))
 
-Base.zero(t::SparsePoly) = zero(lt(t))
+Base.zero(t::SparsePoly) = SparsePoly(empty(t.coeffs), empty(t.exps), var(t))
+# TODO: this fails when t is zero
 Base.one(t::SparsePoly) = one(lt(t))
 
 Base.deleteat!(p::SparsePoly, i::Int) = (deleteat!(p.coeffs, i); deleteat!(p.exps, i); nothing)

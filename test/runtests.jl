@@ -6,29 +6,43 @@ SIMDPolynomials.debugmode() = true
 
 @testset "Fuzz SparsePoly" begin
     x = Uninomial(0, 1)
-    for i in 1:1000
+    for i in 1:10000
         p = sum(rand(-2:2)*x^i for i in 0:10)
         q = sum(rand(-2:2)*x^i for i in 0:5)
-        g = gcd(p, q)
-        pdg = divexact(p, g)
-        qdg = divexact(q, g)
-        @test gcd(pdg, qdg) == one(x)
-        pq = p * q
-        @test divexact(pq, p) == q
-        @test divexact(pq, q) == p
+        try
+            g = gcd(p, q)
+            pdg = divexact(p, g)
+            qdg = divexact(q, g)
+            @test gcd(pdg, qdg) == one(x)
+            pq = p * q
+            @test divexact(pq, p) == q
+            @test divexact(pq, q) == p
+        catch
+            display(p)
+            display(q)
+            rethrow()
+        end
     end
 end
 
 @testset "Fuzz MPoly" begin
-    x, y, z = [Monomial([i]) for i in 0:2]
-    for _ in 1:1000
-        pterms = [rand(-2:2)*prod(rand([x, y, z])^i for i in 0:3) for j in 0:7]
-        p = sum(pterms)
-        q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
-        g = gcd(p, q)
-        pdg = divexact(p, g)
-        qdg = divexact(q, g)
-        @test gcd(pdg, qdg) == one(x)
+    for monos in [[PackedMonomial{4,8}(i) for i in 0:2], [Monomial([i]) for i in 0:2]]
+        x, y, z = monos
+        for _ in 1:10000
+            pterms = [rand(-2:2)*prod(rand([x, y, z])^i for i in 0:3) for j in 0:7]
+            p = sum(pterms)
+            q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
+            try
+                g = gcd(p, q)
+                pdg = divexact(p, g)
+                qdg = divexact(q, g)
+                @test gcd(pdg, qdg) == one(x)
+            catch
+                display(p)
+                display(q)
+                rethrow()
+            end
+        end
     end
 end
 
