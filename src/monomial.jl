@@ -8,6 +8,8 @@ end
 Monomial() = Monomial(EMPTY_IDS)
 degree(x::Monomial) = length(x.ids)
 Base.copy(x::Monomial) = Monomial(copy(x.ids))
+#TODO: optimize
+nvariables(x::Monomial) = length(unique(x.ids))
 
 firstid(m::Monomial) = m.ids[1]
 degree(m::Monomial, id) = count(isequal(id), m.ids)
