@@ -63,14 +63,14 @@ end
     iszero(x) && return p, (current_len, 1)
     ts = terms(p)
     i = start
-    for i in start:current_len
+    @inbounds for i in start:current_len
         t = ts[i]
         if t < x
             current_len += 1
             if current_len > length(ts)
                 insert!(ts, i, x)
             else
-                @inbounds @simd for j in current_len:-1:i+1
+                @simd for j in current_len:-1:i+1
                     ts[j] = ts[j-1]
                 end
                 ts[i] = x
@@ -92,16 +92,12 @@ end
 @inline function _add_term_matched(ts, i, t, x, current_len)
     iz, t = addcoef(t, x)
     if iz
-        # deleteat is somehow faster
-        deleteat!(ts, i)
-        return current_len-1, max(1, i-1)
-        #current_len -= 1
-        #@inbounds @simd for j in i:current_len
-        #    ts[j] = ts[j+1]
-        #end
-        #return current_len, max(1, i-1)
+        tsp = pointer(ts) + i*Base.aligned_sizeof(eltype(ts))
+        GC.@preserve ts Base.unsafe_copyto!(tsp - Base.aligned_sizeof(eltype(ts)), tsp, current_len - i)
+        current_len -= 1
+        return current_len, max(1, i-1)
     else
-        ts[i] = t
+        @inbounds ts[i] = t
         return current_len, i
     end
 end
@@ -110,7 +106,7 @@ end
     iszero(x) && return p, 1
     ts = terms(p)
     i = _end
-    for i in length(ts):-1:_end
+    @inbounds for i in length(ts):-1:_end
         t = ts[i]
         if t > x
             insert!(ts, i+1, x)
