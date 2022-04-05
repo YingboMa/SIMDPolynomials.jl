@@ -9,7 +9,17 @@ Monomial() = Monomial(EMPTY_IDS)
 degree(x::Monomial) = length(x.ids)
 Base.copy(x::Monomial) = Monomial(copy(x.ids))
 #TODO: optimize
-nvariables(x::Monomial) = length(unique(x.ids))
+function nvariables(x::Monomial)
+    nvar = 0
+    lastvar::Int = -1
+    for id in x.ids
+        if id != lastvar
+            lastvar = id
+            nvar += 1
+        end
+    end
+    return nvar
+end
 
 firstid(m::Monomial) = m.ids[1]
 degree(m::Monomial, id) = count(isequal(id), m.ids)
