@@ -1,6 +1,8 @@
 module SIMDPolynomials
 
 using MultivariatePolynomials
+const Term = MultivariatePolynomials.Term
+const Polynomial = MultivariatePolynomials.Polynomial
 export Uninomial, Uniterm, Poly
 export PackedMonomial, Monomial, Term, MPoly
 export terms, coeffs, content, contprim
