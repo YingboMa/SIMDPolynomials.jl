@@ -49,6 +49,7 @@ struct PackedMonomial{L,E,K} <: AbstractMonomial
     PackedMonomial{L,E}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
     PackedMonomial{L,E,K}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
 end
+Base.copy(m::PackedMonomial) = m
 nvariables(x::PackedMonomial{L}) where L = L
 function MultivariatePolynomials.exponents(m::PackedMonomial{L,E,K}) where {L,E,K}
     tup = m.bits
