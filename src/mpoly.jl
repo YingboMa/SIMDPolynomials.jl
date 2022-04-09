@@ -1,7 +1,9 @@
 # default polynomial type
-struct MPoly{T} <: AbstractPolynomial
+#=
+struct MPoly{T} <: AbstractPolynomial{T}
     terms::T
 end
+=#
 #MPoly() = MPoly(EMPTY_TERMS)
 #MPoly(x::AbstractTerm) = MPoly([x])
 #MPoly(x::M) where {M<:AbstractMonomial} = MPoly(Term(x))
