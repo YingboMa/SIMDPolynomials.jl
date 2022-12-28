@@ -1,5 +1,7 @@
 module SIMDPolynomials
 
+import MutableArithmetics
+const MA = MutableArithmetics
 using MultivariatePolynomials
 const Term = MultivariatePolynomials.Term
 const Polynomial = MultivariatePolynomials.Polynomial

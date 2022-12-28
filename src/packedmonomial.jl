@@ -327,3 +327,17 @@ end
 function MultivariatePolynomials.substitute(::MultivariatePolynomials.Subs, v::V, p::Pair{V, Int64}) where {L,E,V<:Variable{L, E}}
     v == p[1] ? p[2] : v
 end
+function MultivariatePolynomials.monomialtype(::Type{Variable{L,E}}) where {L,E}
+    EN = new_E(Val(E))
+    K = calc_K(Val(L),Val(EN))
+    return PackedMonomial{L,EN,K}
+end
+function MA.promote_operation(
+    ::typeof(MultivariatePolynomials.substitute),
+    ::Type{MultivariatePolynomials.Subs},
+    ::Type{PackedMonomial{L,E,K}},
+    ::Type{Pair{Variable{L,E},T}},
+) where {L,E,K,T}
+    U = MA.promote_operation(^, T, Int)
+    return Term{U,PackedMonomial{L,E,K}}
+end
