@@ -209,7 +209,7 @@ function MultivariatePolynomials.mapexponents(f::F, m1::M, m2::M) where {F<:Func
     prod(((i, e),)->PackedMonomial{L,E}(i-1)^e, enumerate(ne))
 end
 
-function MultivariatePolynomials._div(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
+function MultivariatePolynomials.div_multiple(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
     xys = _fmap(-, x.bits, y.bits)
     o = reduce_tup(|, _fmap(Base.Fix2(zero_bits, Val(E)), xys))
 
