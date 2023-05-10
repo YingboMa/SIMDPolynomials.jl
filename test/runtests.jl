@@ -1,5 +1,5 @@
 using SIMDPolynomials
-using SIMDPolynomials: divexact, lc, var
+using SIMDPolynomials: lc, var
 using Test
 
 SIMDPolynomials.debugmode() = true
@@ -11,12 +11,12 @@ SIMDPolynomials.debugmode() = true
         q = sum(rand(-2:2)*x^i for i in 0:5)
         try
             g = gcd(p, q)
-            pdg = divexact(p, g)
-            qdg = divexact(q, g)
+            pdg = div(p, g)
+            qdg = div(q, g)
             @test gcd(pdg, qdg) == one(x)
             pq = p * q
-            @test divexact(pq, p) == q
-            @test divexact(pq, q) == p
+            @test div(pq, p) == q
+            @test div(pq, q) == p
         catch
             display(p)
             display(q)
@@ -34,8 +34,8 @@ end
             q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
             try
                 g = gcd(p, q)
-                pdg = divexact(p, g)
-                qdg = divexact(q, g)
+                pdg = div(p, g)
+                qdg = div(q, g)
                 @test gcd(pdg, qdg) == one(x)
             catch
                 display(p)
@@ -152,7 +152,7 @@ end
     @test test_gcd(p, p1) == p1
     k = p;
     for i in 1:n
-        k = divexact(k, p1)
+        k = div(k, p1)
     end
     @test k == 1
     q = (p + 1) * p;
