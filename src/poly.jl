@@ -402,7 +402,7 @@ function SparsePoly(p::MPoly, v::IDType)
     return poly
 end
 
-univariate_to_multivariate(g::SparsePoly{<:AbstractPolynomial}) = univariate_to_multivariate(g, monomialtype(lc(g)))
+univariate_to_multivariate(g::SparsePoly{<:AbstractPolynomial}) = univariate_to_multivariate(g, monomial_type(lc(g)))
 function univariate_to_multivariate(g, ::Type{<:Monomial})
     cfs = coeffs(g)
     eps = g.exps

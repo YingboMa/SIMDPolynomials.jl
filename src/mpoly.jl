@@ -12,7 +12,7 @@ MPoly{T}(x::M) where {T,M<:AbstractMonomial} = MPoly(Term(x))
 MPoly{T}(x::CoeffType) where {T} = MPoly(eltype(T)(x))
 terms(x::MPoly) = x.terms
 function nvariables(p::MPoly)
-    if monomialtype(p) <: PackedMonomial
+    if monomial_type(p) <: PackedMonomial
         nvariables(monomial(lt(p)))
     else
         error()

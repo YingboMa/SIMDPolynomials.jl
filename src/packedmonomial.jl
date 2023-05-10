@@ -193,16 +193,16 @@ function MultivariatePolynomials.divides(y::T, x::T) where {L,E,T<:PackedMonomia
     return o == zero(UInt64)
 end
 
-MultivariatePolynomials.constantmonomial(::M) where {M<:PackedMonomial} = constantmonomial(M)
-function MultivariatePolynomials.constantmonomial(M::Type{<:PackedMonomial})
+MultivariatePolynomials.constant_monomial(::M) where {M<:PackedMonomial} = constant_monomial(M)
+function MultivariatePolynomials.constant_monomial(M::Type{<:PackedMonomial})
     M()
 end
 
 # TODO: make it fast
-function MultivariatePolynomials.mapexponents!(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
-    MultivariatePolynomials.mapexponents(f, m1, m2)
+function MultivariatePolynomials.map_exponents!(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
+    MultivariatePolynomials.map_exponents(f, m1, m2)
 end
-function MultivariatePolynomials.mapexponents(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
+function MultivariatePolynomials.map_exponents(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
     e1 = exponents(m1)
     e2 = exponents(m2)
     ne = map(f, e1, e2)
@@ -314,8 +314,8 @@ MultivariatePolynomials.variable_union_type(::Type{<:PackedMonomial{L,E}}) where
 MultivariatePolynomials.variables(::Type{<:PackedMonomial{L,E}}) where {L, E} = ntuple(i->Variable{L,E}(i-1), Val(L))
 MultivariatePolynomials.variables(::M) where {M<:PackedMonomial} = variables(M)
 
-MultivariatePolynomials.termtype(M::Type{<:PackedMonomial}, ::Type{T}) where {T} = Term{T, M}
-MultivariatePolynomials.polynomialtype(::Type{Term{T, M}}) where {T, M<:PackedMonomial} = Polynomial{T, Term{T, M}, Vector{Term{T, M}}}
+MultivariatePolynomials.term_type(M::Type{<:PackedMonomial}, ::Type{T}) where {T} = Term{T, M}
+MultivariatePolynomials.polynomial_type(::Type{Term{T, M}}) where {T, M<:PackedMonomial} = Polynomial{T, Term{T, M}, Vector{Term{T, M}}}
 
 MultivariatePolynomials.nvariables(p::Polynomial{T, Term{T, M}}) where {T, L, M<:PackedMonomial{L}} = L
 MultivariatePolynomials.variables(p::Polynomial{T, Term{T, M}}) where {T, M<:PackedMonomial} = variables(M)
@@ -327,7 +327,7 @@ end
 function MultivariatePolynomials.substitute(::MultivariatePolynomials.Subs, v::V, p::Pair{V, Int64}) where {L,E,V<:Variable{L, E}}
     v == p[1] ? p[2] : v
 end
-function MultivariatePolynomials.monomialtype(::Type{Variable{L,E}}) where {L,E}
+function MultivariatePolynomials.monomial_type(::Type{Variable{L,E}}) where {L,E}
     EN = new_E(Val(E))
     K = calc_K(Val(L),Val(EN))
     return PackedMonomial{L,EN,K}
