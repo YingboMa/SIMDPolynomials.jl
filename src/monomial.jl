@@ -2,7 +2,7 @@ const IDType = UInt32
 const NOT_A_VAR = typemax(IDType)
 const EMPTY_IDS = IDType[]
 
-struct Monomial <: AbstractMonomial
+struct Monomial <: MP.AbstractMonomial
     ids::Vector{IDType}
 end
 Monomial() = Monomial(EMPTY_IDS)

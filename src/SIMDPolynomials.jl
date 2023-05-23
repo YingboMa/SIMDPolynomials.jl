@@ -1,10 +1,9 @@
 module SIMDPolynomials
 
-import MutableArithmetics
-const MA = MutableArithmetics
-using MultivariatePolynomials
-const Term = MultivariatePolynomials.Term
-const Polynomial = MultivariatePolynomials.Polynomial
+import MutableArithmetics as MA
+import MultivariatePolynomials as MP
+const Term = MP.Term
+const Polynomial = MP.Polynomial
 export Uninomial, Uniterm, Poly
 export PackedMonomial, Monomial, Term, MPoly
 export terms, coeffs, content, contprim
