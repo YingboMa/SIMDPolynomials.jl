@@ -1,30 +1,8 @@
 using SIMDPolynomials
-#using SIMDPolynomials: var
 import MultivariatePolynomials as MP
 using Test
 
 SIMDPolynomials.debugmode() = true
-
-#@testset "Fuzz SparsePoly" begin
-#    x = Uninomial(0, 1)
-#    for i in 1:10000
-#        p = sum(rand(-2:2)*x^i for i in 0:10)
-#        q = sum(rand(-2:2)*x^i for i in 0:5)
-#        try
-#            g = gcd(p, q)
-#            pdg = div(p, g)
-#            qdg = div(q, g)
-#            @test gcd(pdg, qdg) == one(x)
-#            pq = p * q
-#            @test div(pq, p) == q
-#            @test div(pq, q) == p
-#        catch
-#            display(p)
-#            display(q)
-#            rethrow()
-#        end
-#    end
-#end
 
 @testset "Fuzz MPoly" begin
     for monos in ([PackedMonomial{4,8}(i) for i in 0:2], [Monomial([i]) for i in 0:2])
@@ -35,28 +13,20 @@ SIMDPolynomials.debugmode() = true
             q = sum(rand(-2:2)*prod(rand([x, y, z])^i for i in 0:2)  for j in 0:5)
             try
                 g = gcd(p, q)
-                pdg = div(p, g)
-                qdg = div(q, g)
-                @test gcd(pdg, qdg) == one(x)
+                pdg = MP.div_multiple(p, g)
+                qdg = MP.div_multiple(q, g)
+                if iszero(p) && iszero(q)
+                    @test gcd(pdg, qdg) == zero(x)
+                else
+                    @test gcd(pdg, qdg) == one(x)
+                end
             catch
-                display(p)
-                display(q)
+                println(p)
+                println(q)
                 rethrow()
             end
         end
     end
-end
-
-@testset "pseudorem" begin
-    x = Uninomial(0, 1)
-    p = 2x^10 + x^7 + 7*x^2 + x + 3x
-    q = (p+one(p)) * (p+2one(p)) * (p+3one(p))
-    @test pseudorem(q, p) == 12582912*one(p)
-    q = x^7 + 20*one(x)
-    @test pseudorem(q, p) == q
-    @test pseudorem(p, q) == -40*x^3 + 7*x^2 + 4*x - 20*one(x)
-    q = x^6 + 23*one(x)
-    @test pseudorem(p, q) == -46*x^4 + 7*x^2 - 19*x
 end
 
 function test_gcd(x, y)
@@ -77,12 +47,8 @@ end
     e3 = 7
     e4 = 10
     p = c1 * y^e1 + c2 * y^e2 + c3 * y^e3 + c4 * y^e4
-    pp = SIMDPolynomials.SparsePoly(p, y.ids[1])
-    #@test var(pp) == y.ids[1]
-    @test coeffs(pp) == [c4, c3, c2, c1]
-    @test pp.exps == [e4, e3, e2, e1]
     q = prod(i->p + i, 0:3)
-    @test length(terms(q)) == 262
+    @test length(MP.terms(q)) == 262
     for i in 0:3
         @test test_gcd(p + i, q) == p + i
     end
@@ -127,7 +93,7 @@ end
     e4 = 10
     p = c1 * y^e1 + c2 * y^e2 + c3 * y^e3 + c4 * y^e4
     q = prod(i->p + i, 0:3);
-    @test length(terms(q)) == 262
+    @test length(MP.terms(q)) == 262
     for i in 0:3
         @test test_gcd(p + i, q) == p + i
     end

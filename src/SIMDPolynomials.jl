@@ -19,11 +19,9 @@ end
 
 debugmode() = false
 
-#include("interface.jl")
+include("variable.jl")
 include("utils.jl")
 include("monomial.jl")
 include("packedmonomial.jl")
-#include("mpoly.jl")
-#include("poly.jl")
 
 end
