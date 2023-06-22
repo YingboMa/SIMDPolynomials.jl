@@ -9,7 +9,7 @@ end
 function MP.name_base_indices(v::AbstractVariable)
     "x", (v.id,)
 end
-MP.name(v::AbstractVariable) = string("x", int2lowerscript(v.id))
+MP.name(v::AbstractVariable) = string("x", MP.unicode_subscript(v.id))
 function MP.substitute(::MP.Subs, v::V, p::Pair{V,Int64}) where {V<:AbstractVariable}
     v == p[1] ? p[2] : v
 end
