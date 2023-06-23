@@ -36,7 +36,7 @@ new_E(::Val{E}) where {E} = max(Base._nextpow2(1+E)-1, 7)
 
 Bit packed monomial with maximum of L variables and E bits of exponents.
 """
-struct PackedMonomial{L,E,K} <: AbstractMonomial
+struct PackedMonomial{L,E,K} <: MP.AbstractMonomial
     bits::NTuple{K,UInt64}
     function PackedMonomial{L,E}() where {L,E}
         EN = new_E(Val(E))
@@ -50,8 +50,8 @@ struct PackedMonomial{L,E,K} <: AbstractMonomial
     PackedMonomial{L,E,K}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
 end
 Base.copy(m::PackedMonomial) = m
-nvariables(x::PackedMonomial{L}) where L = L
-function MultivariatePolynomials.exponents(m::PackedMonomial{L,E,K}) where {L,E,K}
+nvariables(::PackedMonomial{L}) where L = L
+function MP.exponents(m::PackedMonomial{L,E,K}) where {L,E,K}
     tup = m.bits
     k = 0
     vpu = var_per_UInt64(Val(E))
@@ -149,7 +149,7 @@ end
 
 # the first chunk is the total degree
 Base.isone(x::PackedMonomial) = iszero(first(x.bits))
-function MultivariatePolynomials.grlex(x::T, y::T) where {T<:PackedMonomial}
+function MP.compare(x::T, y::T) where {T<:PackedMonomial}
     x.bits < y.bits ? -1 : (x == y ? 0 : 1)
 end
 Base.isless(x::T, y::T) where {T<:PackedMonomial} = x.bits < y.bits
@@ -184,7 +184,7 @@ function Base.:*(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
     return T(xys)
 end
 
-function MultivariatePolynomials.divides(y::T, x::T) where {L,E,T<:PackedMonomial{L,E}}
+function MP.divides(y::T, x::T) where {L,E,T<:PackedMonomial{L,E}}
     xys = _fmap(-, x.bits, y.bits)
     o = reduce_tup(|, _fmap(Base.Fix2(zero_bits, Val(E)), xys))
 
@@ -193,23 +193,23 @@ function MultivariatePolynomials.divides(y::T, x::T) where {L,E,T<:PackedMonomia
     return o == zero(UInt64)
 end
 
-MultivariatePolynomials.constantmonomial(::M) where {M<:PackedMonomial} = constantmonomial(M)
-function MultivariatePolynomials.constantmonomial(M::Type{<:PackedMonomial})
+MP.constant_monomial(::M) where {M<:PackedMonomial} = MP.constant_monomial(M)
+function MP.constant_monomial(M::Type{<:PackedMonomial})
     M()
 end
 
 # TODO: make it fast
-function MultivariatePolynomials.mapexponents!(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
-    MultivariatePolynomials.mapexponents(f, m1, m2)
+function MP.map_exponents!(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
+    MP.map_exponents(f, m1, m2)
 end
-function MultivariatePolynomials.mapexponents(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
-    e1 = exponents(m1)
-    e2 = exponents(m2)
+function MP.map_exponents(f::F, m1::M, m2::M) where {F<:Function, L, E, M<:PackedMonomial{L,E}}
+    e1 = MP.exponents(m1)
+    e2 = MP.exponents(m2)
     ne = map(f, e1, e2)
     prod(((i, e),)->PackedMonomial{L,E}(i-1)^e, enumerate(ne))
 end
 
-function MultivariatePolynomials._div(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
+function MP.div_multiple(x::T, y::T) where {L,E,T<:PackedMonomial{L,E}}
     xys = _fmap(-, x.bits, y.bits)
     o = reduce_tup(|, _fmap(Base.Fix2(zero_bits, Val(E)), xys))
 
@@ -274,56 +274,36 @@ function rmid(x::T, id) where {L,E,K,T<:PackedMonomial{L,E,K}}
     return T(bits)
 end
 
-function Base.show(io::IO, m::PackedMonomial{L,E}) where {L,E}
-    tup = m.bits
-    k = 0
-    vpu = var_per_UInt64(Val(E))
-    isone(m) && (print(io, '1'); return)
-    for i in eachindex(tup)
-        int = tup[i] << ((i == 1) * (E+1))
-        for j in 1:vpu - (i == 1)
-            exponent = int >> ((E+1)*(vpu-1))
-            if exponent > 0
-                print(io, 'x')
-                print(io, int2lowerscript(k))
-                exponent > 1 && print(io, int2superscript(exponent))
-            end
-            k += 1
-            int <<= (E+1)
-            L == k && break
-        end
-    end
-end
-
-struct Variable{L,E} <: AbstractVariable
+struct PackedVariable{L,E} <: AbstractVariable
     id::UInt
 end
 
-function Base.:(==)(v1::V, v2::V) where {V<:Variable}
-    v1 === v2
-end
-function Base.isless(v1::V, v2::V) where {V<:Variable}
-    isless(v1.id, v2.id)
-end
-function MultivariatePolynomials.name_base_indices(v::Variable)
-    "x", (v.id,)
-end
-MultivariatePolynomials.name(v::Variable) = string("x", int2lowerscript(v.id))
-MultivariatePolynomials.variable_union_type(::Type{<:PackedMonomial{L,E}}) where {L,E} = Variable{L,E}
+MP.variable_union_type(::Type{<:PackedMonomial{L,E}}) where {L,E} = PackedVariable{L,E}
 
-MultivariatePolynomials.variables(::Type{<:PackedMonomial{L,E}}) where {L, E} = ntuple(i->Variable{L,E}(i-1), Val(L))
-MultivariatePolynomials.variables(::M) where {M<:PackedMonomial} = variables(M)
+MP.variables(::Type{<:PackedMonomial{L,E}}) where {L, E} = ntuple(i->PackedVariable{L,E}(i-1), Val(L))
+MP.variables(::M) where {M<:PackedMonomial} = MP.variables(M)
 
-MultivariatePolynomials.termtype(M::Type{<:PackedMonomial}, ::Type{T}) where {T} = Term{T, M}
-MultivariatePolynomials.polynomialtype(::Type{Term{T, M}}) where {T, M<:PackedMonomial} = Polynomial{T, Term{T, M}, Vector{Term{T, M}}}
+MP.term_type(M::Type{<:Union{Monomial,PackedMonomial}}, ::Type{T}) where {T} = Term{T, M}
+MP.polynomial_type(::Type{Term{T, M}}) where {T, M<:Union{Monomial,PackedMonomial}} = Polynomial{T, Term{T, M}, Vector{Term{T, M}}}
 
-MultivariatePolynomials.nvariables(p::Polynomial{T, Term{T, M}}) where {T, L, M<:PackedMonomial{L}} = L
-MultivariatePolynomials.variables(p::Polynomial{T, Term{T, M}}) where {T, M<:PackedMonomial} = variables(M)
-Base.:(^)(x::Variable{L,E}, p::Integer) where {L,E} = PackedMonomial{L,E}(x.id) ^ p
+MP.nvariables(::Polynomial{T, Term{T, M}}) where {T, L, M<:PackedMonomial{L}} = L
+MP.variables(::Polynomial{T, Term{T, M}}) where {T, M<:PackedMonomial} = MP.variables(M)
+Base.:(^)(x::PackedVariable{L,E}, p::Integer) where {L,E} = PackedMonomial{L,E}(x.id) ^ p
 function Base.:(==)(m1::T, m2::T) where {T<:PackedMonomial}
     m1 === m2
 end
 
-function MultivariatePolynomials.substitute(::MultivariatePolynomials.Subs, v::V, p::Pair{V, Int64}) where {L,E,V<:Variable{L, E}}
-    v == p[1] ? p[2] : v
+function MP.monomial_type(::Type{PackedVariable{L,E}}) where {L,E}
+    EN = new_E(Val(E))
+    K = calc_K(Val(L),Val(EN))
+    return PackedMonomial{L,EN,K}
+end
+function MA.promote_operation(
+    ::typeof(MP.substitute),
+    ::Type{MP.Subs},
+    ::Type{PackedMonomial{L,E,K}},
+    ::Type{Pair{PackedVariable{L,E},T}},
+) where {L,E,K,T}
+    U = MA.promote_operation(^, T, Int)
+    return Term{U,PackedMonomial{L,E,K}}
 end

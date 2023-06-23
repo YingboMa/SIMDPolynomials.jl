@@ -1,8 +1,9 @@
 module SIMDPolynomials
 
-using MultivariatePolynomials
-const Term = MultivariatePolynomials.Term
-const Polynomial = MultivariatePolynomials.Polynomial
+import MutableArithmetics as MA
+import MultivariatePolynomials as MP
+const Term = MP.Term
+const Polynomial = MP.Polynomial
 export Uninomial, Uniterm, Poly
 export PackedMonomial, Monomial, Term, MPoly
 export terms, coeffs, content, contprim
@@ -18,11 +19,9 @@ end
 
 debugmode() = false
 
-#include("interface.jl")
+include("variable.jl")
 include("utils.jl")
 include("monomial.jl")
 include("packedmonomial.jl")
-#include("mpoly.jl")
-#include("poly.jl")
 
 end
