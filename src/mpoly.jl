@@ -7,6 +7,14 @@ MPoly{T}(x::AbstractTerm) where T = MPoly([x])
 MPoly{T}(x::M) where {T,M<:AbstractMonomial} = MPoly(Term(x))
 MPoly{T}(x::CoeffType) where {T} = MPoly([eltype(T)(x)])
 terms(x::MPoly) = x.terms
+function nvariables(p::MPoly)
+    if monomialtype(p) <: PackedMonomial
+        nvariables(monomial(lt(p)))
+    else
+        error()
+    end
+end
+coeffs(x::MPoly) = (coeff(t) for t in terms(x))
 
 Base.copy(x::MPoly) = MPoly(map(copy, terms(x)))
 Base.one(::Type{<:MPoly{T}}) where T = MPoly(eltype(T)(1))

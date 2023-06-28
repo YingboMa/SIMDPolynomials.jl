@@ -49,6 +49,27 @@ struct PackedMonomial{L,E,K} <: AbstractMonomial
     PackedMonomial{L,E}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
     PackedMonomial{L,E,K}(bits::NTuple{K,UInt64}) where {L,E,K} = new{L,new_E(Val(E)),K}(bits)
 end
+nvariables(x::PackedMonomial{L}) where L = L
+function exps(m::PackedMonomial{L,E,K}) where {L,E,K}
+    tup = m.bits
+    k = 0
+    vpu = var_per_UInt64(Val(E))
+    es = ntuple(Ret(0), L)
+    isone(m) && (return es)
+    for i in eachindex(tup)
+        int = tup[i] << ((i == 1) * (E+1))
+        for j in 1:vpu - (i == 1)
+            exponent = int >> ((E+1)*(vpu-1))
+            if exponent > 0
+                es = Base.setindex(es, Int(exponent), k+1)
+            end
+            k += 1
+            int <<= (E+1)
+            L == k && break
+        end
+    end
+    return es
+end
 
 PackedMonomial{L,E,K}(i::Integer) where {L,E,K} = PackedMonomial{L,E}(i)
 function PackedMonomial{L,OE}(i::Integer) where {L,OE} # x_i
